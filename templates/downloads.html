@@ -3,6 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:," />
+
     <title>Gerenciador de Downloads</title>
     <style>
       body {
@@ -20,7 +22,12 @@
         align-items: center;
         margin-bottom: 20px;
       }
-      textarea,
+      textarea {
+        width: 80%;
+        height: 150px;
+        padding: 10px;
+        font-size: 1rem;
+      }
       input[type="text"] {
         width: 80%;
         padding: 10px;
@@ -41,7 +48,7 @@
         background-color: #0056b3;
       }
       .download-list {
-        max-width: 800px;
+        max-width: 600px;
         margin: 0 auto;
       }
       .download-item {
@@ -50,8 +57,6 @@
         padding: 15px;
         border-radius: 5px;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        display: flex;
-        flex-direction: column;
       }
       .progress-bar {
         width: 100%;
@@ -66,108 +71,19 @@
         background: #007bff;
         transition: width 0.2s;
       }
-      .status,
-      .controls {
+      .status {
         margin-top: 10px;
         font-size: 0.9rem;
         color: #555;
       }
-      .controls button {
-        margin-right: 5px;
-      }
     </style>
-    <script>
-      function isValidURL(url) {
-        try {
-          const urlObj = new URL(url.trim());
-          return urlObj.protocol === "http:" || urlObj.protocol === "https:";
-        } catch (e) {
-          return url.startsWith("magnet:");
-        }
-      }
-
-      function startDownload() {
-        const urls = document.getElementById("urls").value.split("\n");
-        const folder = document.getElementById("folder").value.trim();
-        const validUrls = urls.filter((url) => isValidURL(url.trim()));
-
-        if (validUrls.length === 0) {
-          alert("Nenhuma URL válida encontrada.");
-          return;
-        }
-
-        validUrls.forEach((url) => {
-          fetch("/download", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: `url=${encodeURIComponent(
-              url.trim()
-            )}&folder=${encodeURIComponent(folder)}`,
-          })
-            .then((response) => response.json())
-            .then((data) => {
-              console.log(`Download iniciado para: ${url.trim()}`);
-              updateProgress();
-            })
-            .catch((error) => console.error("Erro:", error));
-        });
-
-        alert("Downloads válidos foram adicionados à fila.");
-      }
-
-      function manageDownload(action, id) {
-        fetch(`/torrent/${action}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ torrent_id: id }),
-        })
-          .then((response) => response.json())
-          .then((data) => {
-            alert(data.message || data.error);
-            updateProgress();
-          })
-          .catch((error) => console.error("Erro:", error));
-      }
-
-      function updateProgress() {
-        fetch("/downloads/progress")
-          .then((response) => response.json())
-          .then((data) => {
-            const downloadList = document.querySelector(".download-list");
-            downloadList.innerHTML = "";
-            data.forEach((download) => {
-              const item = document.createElement("div");
-              item.className = "download-item";
-              item.innerHTML = `
-                            <strong>${download.url}</strong>
-                            <div class="progress-bar">
-                                <div class="progress" style="width: ${download.progress}%;"></div>
-                            </div>
-                            <div class="status">${download.status}</div>
-                            <div class="controls">
-                                <button onclick="manageDownload('pause', '${download.id}')">Pausar</button>
-                                <button onclick="manageDownload('resume', '${download.id}')">Retomar</button>
-                                <button onclick="manageDownload('delete', '${download.id}')">Excluir</button>
-                            </div>
-                        `;
-              downloadList.appendChild(item);
-            });
-          });
-      }
-
-      setInterval(updateProgress, 1000); // Atualiza o progresso a cada segundo
-    </script>
   </head>
   <body>
     <h1>Gerenciador de Downloads</h1>
-    <form onsubmit="event.preventDefault(); startDownload();">
+    <form onsubmit=" startDownload();">
       <textarea
         id="urls"
-        placeholder="Cole as URLs ou magnet links para download, uma por linha"
+        placeholder="Cole as URLs para download, uma por linha"
       ></textarea>
       <input
         type="text"
@@ -178,4 +94,66 @@
     </form>
     <div class="download-list"></div>
   </body>
+  <script>
+    function isValidURL(url) {
+        try {
+            const urlObj = new URL(url.trim());
+            return urlObj.protocol === "http:" || urlObj.protocol === "https:";
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function startDownload() {
+        const urls = document.getElementById('urls').value.split('\n');
+        const folder = document.getElementById('folder').value.trim();
+        const validUrls = urls.filter(url => isValidURL(url.trim()));
+
+        if (validUrls.length === 0) {
+            alert('Nenhuma URL válida encontrada.');
+            return;
+        }
+
+        validUrls.forEach(url => {
+            fetch('/download', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `url=${encodeURIComponent(url.trim())}&folder=${encodeURIComponent(folder)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log(Download iniciado para: ${url.trim()});
+                updateProgress();
+            })
+            .catch(error => console.error('Erro:', error));
+        });
+
+        alert('Downloads válidos foram adicionados à fila.');
+    }
+
+    function updateProgress() {
+        fetch('/downloads/progress')
+            .then(response => response.json())
+            .then(data => {
+                const downloadList = document.querySelector('.download-list');
+                downloadList.innerHTML = '';
+                data.forEach(download => {
+                    const item = document.createElement('div');
+                    item.className = 'download-item';
+                    item.innerHTML =
+                        <strong>${download.url}</strong>
+                        <div class="progress-bar">
+                            <div class="progress" style="width: ${download.progress}%;"></div>
+                        </div>
+                        <div class="status">${download.status}</div>
+                    ;
+                    downloadList.appendChild(item);
+                });
+            });
+    }
+
+    setInterval(updateProgress, 1000); // Atualiza o progresso a cada segundo
+  </script>
 </html>
