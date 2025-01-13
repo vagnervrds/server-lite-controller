@@ -1,42 +1,55 @@
 # Server Lite Controller
 
-Uma interface leve e simples para gerenciar servidores, com funcionalidades de controle básico e atalhos úteis.
+**Server Lite Controller** é uma interface leve e simples para gerenciar servidores, oferecendo funcionalidades básicas de controle e atalhos úteis para diversas tarefas. A interface foi projetada para ser intuitiva, atendendo tanto usuários iniciantes quanto avançados.
 
 ## Funcionalidades
 
-- **Desligar/Reiniciar o Servidor**: Botões para desligar ou reiniciar o servidor diretamente pela interface.
-- **Atalhos Personalizáveis**:
-  - Interface para gerenciar downloads.
-  - Gerenciamento de torrents (Deluge).
-  - Links para outras interfaces web do servidor.
-- **Interface Intuitiva**: Projetada para ser simples e fácil de usar.
+### Controle do Servidor
+
+- **Desligar ou Reiniciar**: Com apenas um clique, você pode desligar ou reiniciar o servidor diretamente pela interface web.
+
+### Gerenciamento de Downloads
+
+- **Downloads HTTP**: Interface para gerenciar downloads diretamente pelo servidor, utilizando `requests` do Flask.
+- **Gerenciamento de Torrents**: Integração com o cliente Deluge para adicionar, monitorar e controlar torrents.
+
+### Atalhos Personalizáveis
+
+- Links rápidos para acessar outras interfaces web do servidor, otimizando o acesso a ferramentas e serviços adicionais.
+
+### Interface Responsiva
+
+- **Otimizada para Celulares e Computadores**: A interface é projetada para funcionar perfeitamente em qualquer dispositivo, proporcionando uma experiência fluida e adaptada.
 
 ## Como Usar
 
 1. Clone este repositório:
    ```bash
    git clone https://github.com/vagnervrds/server-lite-controller.git
-   cd server-lite-controller```
+   cd server-lite-controller
+   ```
 2. Crie um ambiente virtual (venv):
 
 ```bash python3 -m venv venv
 source venv/bin/activate  # Linux/Mac
 venv\Scripts\activate     # Windows
 ```
+
 3. Instale as dependências:
 
-```bash 
-pip install -r requirements.txt 
+```bash
+pip install -r requirements.txt
 ```
 
 4. Execute a aplicação:
-```bash 
+
+```bash
 python app.py
 ```
-5. 
-Acesse a interface pelo navegador:
 
-    http://localhost:5010
+5.  Acesse a interface pelo navegador:
+
+        http://localhost:5010
 
 Nota: A aplicação utiliza a porta padrão 5010, mas você pode alterá-la facilmente no arquivo app.py modificando este trecho:
 
