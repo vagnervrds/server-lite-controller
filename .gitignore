@@ -1,0 +1,9 @@
+*.json
+*.jpg
+*.jpeg
+*.log
+*.pyc
+*.sqlite3
+venv/
+__pycache__/
+node_modules/

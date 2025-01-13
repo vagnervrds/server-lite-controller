@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciador de Downloads</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 10px;
+            background-color: #1e1e1e; /* Fundo principal escuro */
+            color: #d4d4d4; /* Texto em cinza claro */
+        }
+        
+        .container {
+            background-color: #252526; /* Fundo dos contêineres */
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); /* Sombras sutis */
+        }
+        
+        h1 {
+            font-size: 24px;
+            text-align: center;
+            margin-bottom: 20px;
+            color: #d4d4d4; /* Texto principal */
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #3c3c3c; /* Bordas em cinza-escuro */
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 16px;
+            background-color: #1e1e1e; /* Fundo do input */
+            color: #d4d4d4; /* Texto do input */
+        }
+        
+        button {
+            background-color: #0078d4; /* Azul Windows */
+            color: white;
+            padding: 12px 16px;
+            font-size: 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        
+        button:hover {
+            background-color: #005a9e; /* Azul escuro ao passar o mouse */
+        }
+        
+        .downloads {
+            margin-top: 20px;
+        }
+        
+        .download-item {
+            padding: 15px;
+            border: 1px solid #3c3c3c; /* Separadores em cinza-escuro */
+            border-radius: 6px;
+            margin-bottom: 10px;
+            background-color: #2d2d2d; /* Fundo mais claro para contraste */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .download-item > div {
+            margin-bottom: 10px;
+        }
+        
+        .progress-bar {
+            background-color: #3c3c3c; /* Fundo da barra de progresso */
+            height: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+            width: 100%;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background-color: #0078d4; /* Azul Windows */
+            transition: width 0.3s ease;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .actions button {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            font-size: 14px;
+            min-width: 90px;
+            background-color: #3a3d41; /* Botões neutros */
+            color: #d4d4d4;
+            border: 1px solid #3c3c3c;
+        }
+        
+        .actions button:hover {
+            background-color: #0078d4; /* Azul Windows ao passar o mouse */
+            color: white;
+        }
+        
+        .flash {
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 6px;
+        }
+        
+        .flash.success {
+            background-color: #1e692e; /* Verde escuro */
+            color: #b7eb8f; /* Verde claro */
+        }
+        
+        .flash.error {
+            background-color: #8b0000; /* Vermelho escuro */
+            color: #f5b7b1; /* Vermelho claro */
+        }
+        
+        .file-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        .file-table th,
+        .file-table td {
+            border: 1px solid #3c3c3c;
+            padding: 10px;
+            text-align: left;
+            font-size: 14px;
+            color: #d4d4d4;
+        }
+        
+        .file-table th {
+            background-color: #252526;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        .file-table td:first-child {
+            text-align: center;
+        }
+        
+        .file-table td:nth-child(2) {
+            word-break: break-word;
+        }
+        
+        .file-table td:last-child {
+            text-align: right;
+        }
+        
+        @media (max-width: 600px) {
+            body {
+                padding: 5px;
+            }
+        
+            h1 {
+                font-size: 20px;
+            }
+        
+            input[type="text"] {
+                padding: 10px;
+                font-size: 14px;
+            }
+        
+            button {
+                padding: 10px;
+                font-size: 14px;
+            }
+        
+            .download-item {
+                padding: 10px;
+                margin-bottom: 8px;
+            }
+        
+            .progress-bar {
+                height: 18px;
+            }
+        
+            .file-table th,
+            .file-table td {
+                font-size: 12px;
+                padding: 8px;
+            }
+        }
+        
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+        <h1>Gerenciador de Downloads</h1>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST">
+            <div class="form-group">
+                <label for="magnet_link">Adicionar Magnet Link:</label>
+                <input type="text" id="magnet_link" name="magnet_link" placeholder="Cole o magnet link aqui" required>
+            </div>
+            <button type="submit">Adicionar Download</button>
+        </form>
+
+        <div class="downloads">
+            <h2>Downloads Ativos</h2>
+            <div id="downloads-container">
+                <p>Carregando downloads...</p>
+            </div>
+        </div>
+        
+        
+        <script>
+            
+            
+
+            let isListingFiles = false;
+
+document.addEventListener('DOMContentLoaded', () => {
+    const downloadsContainer = document.getElementById('downloads-container');
+
+    // Função para atualizar a lista de downloads
+    function fetchDownloads() {
+        if (isListingFiles) return; // Pausa o fetch se estiver listando arquivos
+        fetch('/torrent/downloads')
+            .then(response => response.json())
+            .then(data => {
+                if (data.downloads && data.downloads.length > 0) {
+                    downloadsContainer.innerHTML = ''; // Limpa o contêiner
+                    data.downloads.forEach(download => {
+                        const downloadItem = document.createElement('div');
+                        downloadItem.className = 'download-item';
+                        downloadItem.setAttribute('data-id', download.id);
+
+                        downloadItem.innerHTML = `
+                            <div>${download.name}</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${download.progress}%"></div>
+                            </div>
+                            <div>Status: ${download.state} - ${download.progress}%</div>
+                            <div class="actions">
+                                <button class="btn-stop" data-id="${download.id}">Parar</button>
+                                <button class="btn-cancel" data-id="${download.id}">Cancelar</button>
+                                <button class="btn-delete" data-id="${download.id}">Apagar</button>
+                                <button class="btn-list-files" data-id="${download.id}">Listar Arquivos</button>
+                            </div>
+                        `;
+
+                        downloadsContainer.appendChild(downloadItem);
+
+                        // Adiciona eventos aos botões
+                        addActionListeners(downloadItem);
+                    });
+                } else {
+                    downloadsContainer.innerHTML = '<p>Nenhum download ativo no momento.</p>';
+                }
+            })
+            .catch(err => {
+                downloadsContainer.innerHTML = `<p>Erro ao carregar downloads: ${err.message}</p>`;
+                console.error(err);
+            });
+    }
+
+    // Função para listar arquivos
+    function listFiles(torrentId, container) {
+        isListingFiles = true; // Pausa atualizações automáticas
+        fetch(`/torrent/list-files/${torrentId}`, { method: 'GET' })
+            .then(response => response.json())
+            .then(data => {
+                const fileTable = `
+                    <table class="file-table">
+                        <thead>
+                            <tr>
+                                <th>Baixar</th>
+                                <th>Nome</th>
+                                <th>Tamanho</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.files.map(file => `
+                                <tr>
+                                    <td><input type="checkbox" checked></td>
+                                    <td>${file.name}</td>
+                                    <td>${file.size}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                container.innerHTML = fileTable + '<button class="btn-close-files">Fechar</button>';
+
+                // Adiciona evento para fechar a tabela
+                container.querySelector('.btn-close-files').addEventListener('click', () => {
+                    isListingFiles = false; // Retoma atualizações automáticas
+                    container.innerHTML = ''; // Limpa a tabela
+                    fetchDownloads(); // Atualiza os downloads
+                });
+            })
+            .catch(err => console.error(err));
+    }
+
+    // Adiciona listeners aos botões de ação
+    function addActionListeners(downloadItem) {
+        const torrentId = downloadItem.dataset.id;
+
+        downloadItem.querySelector('.btn-list-files').addEventListener('click', () => {
+            const container = downloadItem.querySelector('.actions');
+            listFiles(torrentId, container);
+        });
+    }
+
+    // Atualiza a lista de downloads a cada 1 segundo
+    setInterval(fetchDownloads, 1000);
+
+    // Carrega os downloads inicialmente
+    fetchDownloads();
+});
+
+        </script>
+                
+    </div>
+</body>
+</html>

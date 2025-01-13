@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciamento DietPi</title>
+    <style>
+        /* Reseta os estilos padrão */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        /* Estilo do corpo */
+        body {
+            background-color: #f4f4f9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* Cabeçalho */
+        h1 {
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 1.8rem;
+            text-align: center;
+        }
+
+        /* Botões */
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 15px 20px;
+            font-size: 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+            width: 100%;
+            max-width: 300px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s, transform 0.2s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        /* Links estilizados como botões */
+        a {
+            text-decoration: none;
+        }
+
+        /* Container para centralizar o conteúdo */
+        .container {
+            text-align: center;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        /* Layout responsivo */
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            button {
+                padding: 12px 15px;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Gerenciamento do Servidor DietPi</h1>
+        <form action="/desligar" method="post">
+            <button type="submit">Desligar</button>
+        </form>
+        <form action="/reiniciar" method="post">
+            <button type="submit">Reiniciar</button>
+        </form>
+        <a href="http://192.168.2.38:8112/">
+            <button type="button">Abrir Deluge</button>
+        </a>
+
+        <a href="http://192.168.2.38:5252/">
+            <button type="button">Abrir DietPi</button>
+        </a>
+        <a href="/downloads">
+            <button type="button">Baixar https</button>
+        </a>
+        <a href="/torrent">
+            <button type="button">Baixar Torrent</button>
+        </a>
+
+    </div>
+</body>
+
+</html>
