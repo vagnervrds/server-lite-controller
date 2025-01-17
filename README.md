@@ -95,10 +95,6 @@ Envie para o repositório remoto:
 
     Abra um Pull Request explicando suas alterações.
 
-Licença
-
-Este projeto está licenciado sob a Licença MIT. Consulte o arquivo LICENSE para mais informações.
-
 Instale as dependências:
 
 pip install -r requirements.txt
@@ -155,6 +151,56 @@ Envie para o repositório remoto:
 
     Abra um Pull Request explicando suas alterações.
 
+## Como configurar o serviço para que o aplicativo Flask rode continuamente no servidor.
+
+### Criar o Arquivo do Serviço
+
+Crie um arquivo de serviço no systemd para rodar o aplicativo continuamente:
+
+    sudo nano /etc/systemd/system/server-lite-controller.service
+
+Adicione o seguinte conteúdo ao arquivo:
+
+[Unit]
+Description=Server Lite Controller
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/caminho/para/seu/projeto
+Environment="PATH=/caminho/para/seu/projeto/venv/bin"
+ExecStart=/caminho/para/seu/projeto/venv/bin/python app.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
+    Nota: Substitua /caminho/para/seu/projeto pelo caminho real onde os arquivos estão localizados no servidor.
+
+### Configurar e Iniciar o Serviço
+
+    Recarregue o systemd para reconhecer o novo serviço:
+
+sudo systemctl daemon-reload
+
+Inicie o serviço:
+
+    sudo systemctl start server-lite-controller
+
+Habilite o serviço para iniciar automaticamente no boot:
+
+    sudo systemctl enable server-lite-controller
+
+Verifique o status do serviço:
+
+    sudo systemctl status server-lite-controller
+
+### Testar o Funcionamento
+
+Acesse o aplicativo no navegador usando o IP do servidor e a porta configurada (por padrão, 5010):
+
+http://<IP_DO_SERVIDOR>:5010/
+
 Licença
 
-Este projeto está licenciado sob a Licença MIT. Consulte o arquivo LICENSE para mais informações.
+Este projeto está licenciado sob a Licença MIT.

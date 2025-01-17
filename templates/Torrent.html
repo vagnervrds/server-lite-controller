@@ -20,7 +20,7 @@
         <div class="flash {{ category }}">{{ message }}</div>
         {% endfor %} {% endif %} {% endwith %}
 
-        <form method="POST">
+        <form id="add-download-form" method="POST">
             <div class="form-group">
                 <label for="magnet_link">Adicionar Magnet Link:</label>
                 <input type="text" id="magnet_link" name="magnet_link" placeholder="Cole o magnet link aqui" required />
@@ -170,7 +170,37 @@
                             listFiles(torrentId, container);
                         });
                 }
+                //botão de adicionar download
+                const form = document.getElementById("add-download-form");
 
+                form.addEventListener("submit", (event) => {
+                    event.preventDefault(); // Impede o comportamento padrão do formulário
+                    const magnetLink = document.getElementById("magnet_link").value;
+
+                    const formData = new FormData(); // Cria um FormData
+                    formData.append("magnet_link", magnetLink); // Adiciona o magnet link
+
+                    fetch("/torrent/", {
+                        method: "POST",
+                        body: formData, // Envia o FormData como corpo da requisição
+                    })
+                        .then((response) => {
+                            if (response.ok) {
+                                // Se a resposta foi bem-sucedida, atualiza a lista de downloads
+                                alert("Download adicionado com sucesso!");
+                                document.getElementById("magnet_link").value = ""; // Limpa o campo de entrada
+                                fetchDownloads(); // Atualiza a lista de downloads
+                            } else {
+                                return response.text().then((text) => {
+                                    throw new Error(text || "Erro ao adicionar o download.");
+                                });
+                            }
+                        })
+                        .catch((err) => {
+                            console.error(err);
+                            alert("Erro: " + err.message);
+                        });
+                });
                 // Atualiza a lista de downloads a cada 5 segundos
                 setInterval(fetchDownloads, 5000);
 
@@ -178,6 +208,8 @@
                 fetchDownloads();
             });
         </script>
+
+
     </div>
 </body>
 

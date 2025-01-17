@@ -20,6 +20,18 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/desligar", methods=["POST"])
+def desligar():
+    os.system("/sbin/shutdown -h now")
+    return "Desligando o servidor..."
+
+
+@app.route("/reiniciar", methods=["POST"])
+def reiniciar():
+    os.system("/sbin/reboot")
+    return "Reiniciando o servidor..."
+
+
 @app.route("/downloads", methods=["GET"])
 def downloads_page():
     return render_template("downloads.html", downloads=downloads)
