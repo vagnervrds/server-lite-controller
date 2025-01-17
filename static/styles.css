@@ -105,7 +105,7 @@ button:hover {
   flex-wrap: wrap;
 }
 
-.actions button {
+button {
   flex: 1;
   text-align: center;
   padding: 10px;
@@ -117,7 +117,7 @@ button:hover {
   border: 1px solid #3c3c3c;
 }
 
-.actions button:hover {
+button:hover {
   background-color: #0078d4;
   /* Azul Windows ao passar o mouse */
   color: white;
@@ -209,4 +209,10 @@ button:hover {
     font-size: 12px;
     padding: 8px;
   }
+}
+
+.botoesHorizontal button {
+  margin-bottom: 20px;
+  width: 100%;
+  padding: 15px;
 }
