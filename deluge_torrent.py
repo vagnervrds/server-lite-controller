@@ -1,15 +1,16 @@
+import os
 from flask import Flask, render_template, request, redirect, flash, Blueprint
 import secrets
 from deluge_client import DelugeRPCClient
-# app = Flask(__name__)
-# Gerar uma chave secreta para o Flask
-# app.secret_key = secrets.token_hex(16)
+from logger_config import setup_logger
+from utils import ler_settings
+
+# Configurar o logger
+logger = setup_logger(__name__)
+settings = ler_settings()
+d = settings.delug
+
 delugeTorrent = Blueprint('delugeTorrent', __name__)
-# Configurações do Deluge
-DELUGE_HOST = "localhost"  # Endereço do servidor Deluge
-DELUGE_PORT = 58846        # Porta padrão do Deluge RPC
-DELUGE_USERNAME = "root"   # Nome de usuário para autenticação
-DELUGE_PASSWORD = "dietpi"  # Senha correspondente
 
 
 def connect_deluge():
@@ -19,15 +20,15 @@ def connect_deluge():
     """
     try:
         client = DelugeRPCClient(
-            DELUGE_HOST,
-            DELUGE_PORT,
-            DELUGE_USERNAME,
-            DELUGE_PASSWORD
+            d.DELUGE_HOST,
+            d.DELUGE_PORT,
+            d.DELUGE_USERNAME,
+            d.DELUGE_PASSWORD
         )
         client.connect()
         return client
     except Exception as e:
-        print(f"Erro ao conectar ao Deluge: {e}")
+        logger.info(f"Erro ao conectar ao Deluge: {e}")
         return None
 
 
@@ -131,6 +132,8 @@ def list_files(torrent_id):
             torrents = client.call('core.get_torrents_status', {}, ['files'])
             if torrent_id.encode('utf-8') in torrents:
                 files = torrents[torrent_id.encode('utf-8')][b'files']
+                logger.info(torrent_id)
+                logger.info(files)
                 file_list = [{
                     "name": f[b'path'].decode('utf-8'),
                     "size": format_size(f[b'size'])  # Formata o tamanho
@@ -165,13 +168,66 @@ def get_downloads():
         return {"downloads": downloads}, 200
     except Exception as e:
         return {"error": f"Erro: {str(e)}"}, 500
+# Endpoint para lidar com arquivos marcados como "false"
+
+
+@delugeTorrent.route('/cancel-files/<torrent_id>', methods=['POST'])
+def cancel_files(torrent_id):
+    """
+    Endpoint para cancelar o download de arquivos marcados como false e excluir arquivos do disco.
+    """
+    try:
+        client = connect_deluge()
+        if not client:
+            return {"message": "Erro ao conectar ao Deluge."}, 500
+
+        # Obtém os dados do request
+        data = request.get_json()
+        if not data or "file_selections" not in data:
+            return {"message": "Nenhum dado enviado."}, 400
+
+        # Ex: {"file_name_1": true, "file_name_2": false}
+        file_selections = data["file_selections"]
+
+        # Verifica se o torrent existe
+        torrents = client.call('core.get_torrents_status', {}, ['files'])
+        if torrent_id.encode('utf-8') not in torrents:
+            return {"message": "Torrent não encontrado."}, 404
+
+        files = torrents[torrent_id.encode('utf-8')][b'files']
+        file_priorities = []
+        excluidos = []
+        for file in files:
+            file_name = file[b'path'].decode('utf-8')
+            file_path = file_name  # Deluge já retorna o caminho completo
+            priority = 0 if not file_selections.get(file_name, True) else 1
+            file_priorities.append(priority)
+
+            # Remove os arquivos marcados como false
+            if not file_selections.get(file_name, True):
+                try:
+                    if os.path.exists(file_path):
+                        excluidos.append(file_path)
+                        os.remove(file_path)
+                        logger.info("ecluindo", file_path)
+                except Exception as e:
+                    return {"message": f"Erro ao excluir arquivo {file_name}: {str(e)}"}, 500
+
+        # Atualiza as prioridades dos arquivos no Deluge
+        client.call('core.set_torrent_file_priorities',
+                    torrent_id.encode('utf-8'), file_priorities)
+
+        return {"message": "Prioridades atualizadas e arquivos excluídos com sucesso.", "excluidos": excluidos}, 200
+
+    except Exception as e:
+        return {"message": f"Erro: {str(e)}"}, 500
 
 
 client = connect_deluge()
 if client:
-    print("✅ Conexão com o Deluge estabelecida com sucesso!")
+    logger.info("✅ Conexão com o Deluge estabelecida com sucesso!")
 else:
-    print("❌ Falha ao conectar com o Deluge. Verifique as configurações.")
+    logger.info("❌ Falha ao conectar com o Deluge. Verifique as configurações.")
 # if __name__ == '__main__':
 #     # Testa a conexão com o Deluge ao iniciar o servidor
 

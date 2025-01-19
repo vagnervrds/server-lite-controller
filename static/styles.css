@@ -29,19 +29,17 @@ h1 {
 .form-group {
   margin-bottom: 20px;
 }
-
+textarea,
 input[type="text"] {
   width: 100%;
   padding: 12px;
   border: 1px solid #3c3c3c;
-  /* Bordas em cinza-escuro */
   border-radius: 6px;
   box-sizing: border-box;
   font-size: 16px;
-  background-color: #1e1e1e;
-  /* Fundo do input */
   color: #d4d4d4;
-  /* Texto do input */
+  background-color: #3d3d3d;
+  margin-block: 10px;
 }
 
 button {
@@ -215,4 +213,31 @@ button:hover {
   margin-bottom: 20px;
   width: 100%;
   padding: 15px;
+}
+textarea {
+  height: 150px;
+  padding: 10px;
+  font-size: 1rem;
+}
+form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.download-item > div {
+  margin-bottom: 10px;
+  display: inherit;
+  gap: 5px;
+}
+#btinicio {
+  width: 50%;
+  border: white;
+  font-size: larger;
+  margin-top: 10px;
+}
+.progress {
+  height: 100%;
+  background: #007bff;
+  transition: width 0.2s;
 }

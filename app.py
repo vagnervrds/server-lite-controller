@@ -5,14 +5,17 @@ import threading
 import requests
 from deluge_torrent import delugeTorrent  # Importe o blueprint
 import secrets
+# Configurar o logger
+from logger_config import setup_logger
+from utils import ler_settings
+logger = setup_logger(__name__)
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
 app.register_blueprint(delugeTorrent, url_prefix='/torrent')
+settings = ler_settings()
 
-
-DOWNLOAD_DIR = "/mnt/dietpi_userdata/downloads"
-downloads = []
+DOWNLOAD_DIR = settings.DOWNLOAD_DIR
 
 
 @app.route("/")
@@ -32,6 +35,11 @@ def reiniciar():
     return "Reiniciando o servidor..."
 
 
+# Alterado para usar um dicionário com IDs únicos
+downloads = {}
+# download_id_counter = 1  # Contador para IDs únicos
+
+
 @app.route("/downloads", methods=["GET"])
 def downloads_page():
     return render_template("downloads.html", downloads=downloads)
@@ -41,79 +49,92 @@ def downloads_page():
 def start_download():
     url = request.form.get("url")
     folder = request.form.get("folder", "").strip()
+
     if not url:
         return jsonify({"error": "URL não fornecida"}), 400
 
-    else:  # HTTP/HTTPS link
-        parsed_url = urlparse(url)
-        filename = os.path.basename(parsed_url.path)
-        filename = unquote(filename)
-        download_dir = os.path.join(
-            DOWNLOAD_DIR, folder) if folder else DOWNLOAD_DIR
-        os.makedirs(download_dir, exist_ok=True)
-        filepath = os.path.join(download_dir, filename)
+    parsed_url = urlparse(url)
+    filename = os.path.basename(parsed_url.path)
+    filename = unquote(filename)
+    download_dir = os.path.join(
+        DOWNLOAD_DIR, folder) if folder else DOWNLOAD_DIR
+    os.makedirs(download_dir, exist_ok=True)
+    filepath = os.path.join(download_dir, filename)
 
-        def download_file():
-            try:
-                with requests.get(url, stream=True) as response:
-                    total_size = int(response.headers.get("content-length", 0))
-                    downloaded_size = 0
-                    with open(filepath, "wb") as file:
-                        for chunk in response.iter_content(chunk_size=1024):
-                            if chunk:
-                                file.write(chunk)
-                                downloaded_size += len(chunk)
-                                for d in downloads:
-                                    if d["url"] == url:
-                                        d["progress"] = int(
-                                            (downloaded_size / total_size) * 100) if total_size else 0
-            finally:
-                for d in downloads:
-                    if d["url"] == url:
-                        d["progress"] = 100
-                        d["status"] = "Concluído"
-                        break
+    download_id = len(downloads) + 1
+    print("iniciando dolwoad", download_id)
 
-        downloads.append({"url": url, "progress": 0,
-                         "status": "Baixando arquivo..."})
-        thread = threading.Thread(target=download_file)
-        thread.start()
-        return jsonify({"message": "Download iniciado", "url": url})
+    def download_file():
+        try:
+            with requests.get(url, stream=True) as response:
+                total_size = int(response.headers.get("content-length", 0))
+                downloaded_size = 0
+                with open(filepath, "wb") as file:
+                    for chunk in response.iter_content(chunk_size=1024):
+                        if not downloads[download_id]["active"]:
+                            downloads[download_id]["status"] = "Pausado"
+                            return
 
+                        if chunk:
+                            file.write(chunk)
+                            downloaded_size += len(chunk)
+                            downloads[download_id]["progress"] = int(
+                                (downloaded_size / total_size) * 100) if total_size else 0
 
-@app.route("/torrent/<action>", methods=["POST"])
-def manage_torrent(action):
-    torrent_id = request.json.get("torrent_id")
-    if not torrent_id:
-        return jsonify({"error": "ID do torrent não fornecido"}), 400
+            downloads[download_id]["progress"] = 100
+            downloads[download_id]["status"] = "Concluído"
+        except Exception as e:
+            downloads[download_id]["status"] = f"Erro: {e}"
 
-    try:
-        if action == "pause":
-            client.call("core.pause_torrent", [torrent_id])
-        elif action == "resume":
-            client.call("core.resume_torrent", [torrent_id])
-        elif action == "delete":
-            client.call("core.remove_torrent", torrent_id, True)
-        return jsonify({"message": f"Torrent {action} com sucesso"})
-    except Exception as e:
-        return jsonify({"error": f"Erro ao executar {action}: {str(e)}"}), 500
+    downloads[download_id] = {
+        "id": download_id,
+        "url": url,
+        "progress": 0,
+        "status": "Baixando arquivo...",
+        "filepath": filepath,
+        "active": True
+    }
+
+    thread = threading.Thread(target=download_file)
+    thread.start()
+
+    return jsonify({"message": "Download iniciado", "id": download_id, "url": url})
 
 
 @app.route("/downloads/progress", methods=["GET"])
 def downloads_progress():
-    try:
-        torrent_status = client.call("core.get_torrents_status", {}, [
-                                     "name", "progress", "state"])
-        for torrent_id, status in torrent_status.items():
-            downloads.append({
-                "url": status["name"],
-                "progress": status["progress"],
-                "status": status["state"]
-            })
-    except Exception as e:
-        return jsonify({"error": f"Erro ao obter progresso dos torrents: {str(e)}"}), 500
-    return jsonify(downloads)
+    return jsonify(list(downloads.values()))
+
+
+@app.route("/downloads/control", methods=["POST"])
+def control_download():
+    download_id = request.json.get("id")
+    print("apagar", download_id)
+    action = request.json.get("action")
+
+    if download_id not in downloads:
+        return jsonify({"error": "Download não encontrado"}), 404
+
+    if action == "pause":
+        downloads[download_id]["active"] = False
+        downloads[download_id]["status"] = "Pausado"
+    elif action == "resume":
+        downloads[download_id]["active"] = True
+        downloads[download_id]["status"] = "Retomando"
+        thread = threading.Thread(
+            target=start_download, args=(downloads[download_id]["url"],))
+        thread.start()
+    elif action == "delete":
+        delete_files = request.json.get("delete_files", False)
+        if delete_files and os.path.exists(downloads[download_id]["filepath"]):
+            os.remove(downloads[download_id]["filepath"])
+        del downloads[download_id]
+    else:
+        return jsonify({"error": "Ação inválida"}), 400
+
+    return jsonify({"message": f"Ação '{action}' executada para download {download_id}"})
 
 
 if __name__ == "__main__":
+    logger.info("Iniciando o servidor Flask.")
     app.run(host="0.0.0.0", port=5010, debug=True)
