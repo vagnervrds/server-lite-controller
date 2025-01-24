@@ -4,6 +4,8 @@ from flask import Flask, render_template, request, jsonify
 import threading
 import requests
 from deluge_torrent import delugeTorrent  # Importe o blueprint
+from file_manager import fileManager
+
 import secrets
 # Configurar o logger
 from logger_config import setup_logger
@@ -13,6 +15,8 @@ logger = setup_logger(__name__)
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
 app.register_blueprint(delugeTorrent, url_prefix='/torrent')
+app.register_blueprint(fileManager, url_prefix='/filemanager')
+
 settings = ler_settings()
 
 DOWNLOAD_DIR = settings.DOWNLOAD_DIR
