@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Gerenciador de Arquivos</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles_fm.css') }}">
+    <!-- Font Awesome para ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        integrity="sha512-pbG4G7pPcQcPZxz/4zUQpObn6RHO1j+V5Nht/7u0Pfef2d9m1kBn1UPiw+7F3kjhAkdPzQ/E7V75kCJo4YwGJw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+</head>
+
+<body>
+    <h1>Gerenciador de Arquivos</h1>
+
+    <div id="messages"></div>
+
+    <div class="navigation" id="navigation">
+        <!-- Caminho atual será exibido aqui -->
+    </div>
+
+    <div class="actions">
+        <form id="upload-form">
+            <input type="file" name="files" id="file-input" multiple required>
+            <button type="submit"><i class="fas fa-upload"></i> Upload</button>
+        </form>
+
+        <form id="create-folder-form">
+            <input type="text" name="folder_name" id="folder-name-input" placeholder="Nome da nova pasta" required>
+            <button type="submit"><i class="fas fa-folder-plus"></i> Criar Pasta</button>
+        </form>
+
+        <form id="search-form">
+            <input type="text" id="search-input" placeholder="Pesquisar..." />
+            <button type="submit"><i class="fas fa-search"></i> Buscar</button>
+        </form>
+    </div>
+
+    <div class="delete-actions">
+        <button id="delete-selected-btn"><i class="fas fa-trash-alt"></i> Deletar Selecionados</button>
+    </div>
+
+    <table id="files-table">
+        <thead>
+            <tr>
+                <th><input type="checkbox" id="select-all"></th>
+                <th>Nome</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Arquivos e pastas serão inseridos aqui pelo JavaScript -->
+        </tbody>
+    </table>
+
+    <script src="{{ url_for('static', filename='app_fm.js') }}"></script>
+</body>
+
+</html>
