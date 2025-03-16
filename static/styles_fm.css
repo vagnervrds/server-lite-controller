@@ -11,6 +11,9 @@ h1 {
   background-color: #252526;
   font-weight: 500;
   border-radius: 6px;
+  padding: 10px;
+  font-size: larger;
+  margin: 0;
 }
 .navigation {
   padding: 10px 20px;
@@ -110,11 +113,115 @@ button {
   display: flex;
   align-items: center;
   gap: 5px;
+  background-color: #0078d4;
+  color: #fff;
+  padding: 12px 16px;
+  font-size: 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s;
 }
+button:hover {
+  background-color: #005a9e;
+}
+#delete-selected-btn {
+  background: #d32f2f;
+}
+#delete-selected-btn:hover {
+  background: #b71c1c;
+}
+#delete-selected-btn:disabled {
+  background: #616161;
+  cursor: not-allowed;
+}
+
+/* Melhorias para ícones */
 .icon {
   margin-right: 10px;
-  color: #0e639c;
 }
+
+/* Ícones específicos para pastas e arquivos */
+.fas.fa-folder {
+  color: #ffc107; /* Amarelo */
+  margin-right: 10px;
+}
+
+.fas.fa-file {
+  color: #90caf9; /* Azul claro */
+  margin-right: 10px;
+}
+
+/* Ícones específicos por tipo de arquivo */
+.fas.fa-file-pdf {
+  color: #ef5350; /* Vermelho */
+  margin-right: 10px;
+}
+
+.fas.fa-file-word {
+  color: #42a5f5; /* Azul */
+  margin-right: 10px;
+}
+
+.fas.fa-file-excel {
+  color: #66bb6a; /* Verde */
+  margin-right: 10px;
+}
+
+.fas.fa-file-powerpoint {
+  color: #ff7043; /* Laranja */
+  margin-right: 10px;
+}
+
+.fas.fa-file-image {
+  color: #ab47bc; /* Roxo */
+  margin-right: 10px;
+}
+
+.fas.fa-file-audio,
+.fas.fa-file-video {
+  color: #7e57c2; /* Roxo mais escuro */
+  margin-right: 10px;
+}
+
+.fas.fa-file-archive {
+  color: #8d6e63; /* Marrom */
+  margin-right: 10px;
+}
+
+.fas.fa-file-code {
+  color: #26a69a; /* Verde-água */
+  margin-right: 10px;
+}
+
+.fas.fa-file-alt {
+  color: #bdbdbd; /* Cinza */
+  margin-right: 10px;
+}
+
+/* Estilos para os resultados de pesquisa */
+.file-path {
+  color: #9e9e9e; /* Cinza */
+  font-size: 0.85em;
+  margin-left: 8px;
+  font-style: italic;
+}
+
+.search-result {
+  display: flex;
+  align-items: center;
+}
+
+.download-button {
+  margin-left: 10px;
+  color: #4fc3f7;
+}
+
+.download-button:hover {
+  color: #29b6f6;
+}
+
+/* Mensagens */
 #messages {
   padding: 10px 20px;
 }
@@ -138,6 +245,27 @@ button {
   color: #f8d7da;
   border: 1px solid #721c24;
 }
+
+/* Classes para erros e sucessos genéricos */
+.success {
+  background-color: #006400;
+  color: #d4edda;
+  border: 1px solid #0f5132;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.error {
+  background-color: #8b0000;
+  color: #f8d7da;
+  border: 1px solid #721c24;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+/* Responsividade */
 @media (max-width: 768px) {
   .actions,
   .actions form {
@@ -179,28 +307,4 @@ button {
     width: 100%;
     justify-content: center;
   }
-}
-button {
-  background-color: #0078d4;
-  color: #fff;
-  padding: 12px 16px;
-  font-size: 16px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background-color 0.3s;
-}
-button:hover {
-  background-color: #005a9e;
-}
-#delete-selected-btn {
-  background: red;
-}
-#delete-selected-btn:hover {
-  background: #7c0202;
-}
-h1 {
-  padding: 10px;
-  font-size: larger;
-  margin: 0;
 }

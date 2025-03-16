@@ -1,5 +1,6 @@
 import os
 import fnmatch
+import shutil  # Adicionado para operações de pasta não vazias
 from flask import Flask, render_template, jsonify, request, send_from_directory, abort, Blueprint
 from werkzeug.utils import secure_filename
 
@@ -10,22 +11,18 @@ fileManager = Blueprint('fileManager', __name__)
 settings = ler_settings()
 DOWNLOAD_DIR = settings.DOWNLOAD_DIR
 
-# DOWNLOAD_DIR = os.path.join(os.getcwd(), 'uploads')
 # Adicione mais conforme necessário
 ALLOWED_EXTENSIONS = set(
-    ['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'zip', 'rar'])
+    ['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'zip', 'rar', 'mp3', 'mp4', 'doc', 'docx', 'xls', 'xlsx'])
 
 
 # Função para verificar extensões permitidas
-
-
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+
 # Função para listar arquivos e pastas
-
-
 def list_directory(req_path):
     abs_path = os.path.join(DOWNLOAD_DIR, req_path)
 
@@ -43,26 +40,23 @@ def list_directory(req_path):
         else:
             items.append({'type': 'file', 'name': entry})
 
-    return jsonify({'type': 'folder', 'name': os.path.basename(abs_path), 'items': items})
+    return jsonify({'type': 'folder', 'name': os.path.basename(abs_path) or 'Raiz', 'items': items})
+
 
 # Rota para a página principal
-
-
 @fileManager.route('/', methods=['GET', 'POST'])
 def home():
     return render_template('filemanager.html')
 
+
 # API para obter o conteúdo de um diretório
-
-
 @fileManager.route('/api/list', methods=['GET'])
 def api_list():
     req_path = request.args.get('path', '')
     return list_directory(req_path)
 
+
 # API para fazer upload de arquivos múltiplos
-
-
 @fileManager.route('/api/upload', methods=['POST'])
 def api_upload():
     current_path = request.form.get('current_path', '')
@@ -104,9 +98,8 @@ def api_upload():
     status = 200 if uploaded_files else 400
     return jsonify({'success': len(uploaded_files) > 0, 'message': message}), status
 
+
 # API para criar uma nova pasta
-
-
 @fileManager.route('/api/create_folder', methods=['POST'])
 def api_create_folder():
     current_path = request.form.get('current_path', '')
@@ -116,16 +109,16 @@ def api_create_folder():
         new_folder_path = os.path.join(
             DOWNLOAD_DIR, current_path, folder_name)
         try:
-            os.makedirs(new_folder_path)
+            # Adicionado exist_ok para evitar erros se a pasta já existir
+            os.makedirs(new_folder_path, exist_ok=True)
             return jsonify({'success': True, 'message': 'Pasta criada com sucesso'})
         except Exception as e:
             return jsonify({'success': False, 'message': f'Erro ao criar pasta: {e}'}), 500
     else:
         return jsonify({'success': False, 'message': 'Nome da pasta inválido'}), 400
 
+
 # API para deletar arquivos/pastas múltiplos
-
-
 @fileManager.route('/api/delete_multiple', methods=['POST'])
 def api_delete_multiple():
     data = request.get_json()
@@ -152,7 +145,8 @@ def api_delete_multiple():
                 os.remove(target_path)
                 deleted_files.append(target)
             elif os.path.isdir(target_path):
-                os.rmdir(target_path)
+                # Usando rmtree para remover pastas e seu conteúdo
+                shutil.rmtree(target_path)
                 deleted_files.append(target)
             else:
                 failed_files.append(
@@ -171,9 +165,8 @@ def api_delete_multiple():
     status = 200 if deleted_files else 400
     return jsonify({'success': len(deleted_files) > 0, 'message': message}), status
 
+
 # API para pesquisar arquivos e pastas
-
-
 @fileManager.route('/api/search', methods=['GET'])
 def api_search():
     query = request.args.get('q', '').strip().lower()
@@ -200,9 +193,8 @@ def api_search():
 
     return jsonify({'success': True, 'results': matches})
 
+
 # Rota para download de arquivos
-
-
 @fileManager.route('/download/<path:filename>', methods=['GET'])
 def download_file(filename):
     return send_from_directory(DOWNLOAD_DIR, filename, as_attachment=True)

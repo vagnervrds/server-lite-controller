@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, redirect, flash, Blueprint
+from flask import Flask, render_template, request, redirect, flash, Blueprint, jsonify
 import secrets
 from deluge_client import DelugeRPCClient
 from logger_config import setup_logger
@@ -77,6 +77,9 @@ def index():
 
 @delugeTorrent.route('/stop/<torrent_id>', methods=['POST'])
 def stop_torrent(torrent_id):
+    """
+    Pausa um torrent específico.
+    """
     try:
         client = connect_deluge()
         if client:
@@ -88,8 +91,27 @@ def stop_torrent(torrent_id):
         return {"message": f"Erro: {str(e)}"}, 500
 
 
+@delugeTorrent.route('/resume/<torrent_id>', methods=['POST'])
+def resume_torrent(torrent_id):
+    """
+    Retoma um torrent pausado.
+    """
+    try:
+        client = connect_deluge()
+        if client:
+            client.call('core.resume_torrent', [torrent_id])
+            return {"message": "Download retomado com sucesso!"}, 200
+        else:
+            return {"message": "Erro ao conectar ao Deluge."}, 500
+    except Exception as e:
+        return {"message": f"Erro: {str(e)}"}, 500
+
+
 @delugeTorrent.route('/cancel/<torrent_id>', methods=['POST'])
 def cancel_torrent(torrent_id):
+    """
+    Cancela um torrent sem apagar os arquivos.
+    """
     try:
         client = connect_deluge()
         if client:
@@ -103,6 +125,9 @@ def cancel_torrent(torrent_id):
 
 @delugeTorrent.route('/delete/<torrent_id>', methods=['POST'])
 def delete_torrent(torrent_id):
+    """
+    Remove um torrent e apaga os arquivos.
+    """
     try:
         client = connect_deluge()
         if client:
@@ -126,24 +151,35 @@ def format_size(size_in_bytes):
 
 @delugeTorrent.route('/list-files/<torrent_id>', methods=['GET'])
 def list_files(torrent_id):
+    """
+    Lista os arquivos de um torrent específico.
+    """
     try:
         client = connect_deluge()
         if client:
-            torrents = client.call('core.get_torrents_status', {}, ['files'])
+            torrents = client.call('core.get_torrents_status', {}, [
+                                   'files', 'file_priorities'])
             if torrent_id.encode('utf-8') in torrents:
                 files = torrents[torrent_id.encode('utf-8')][b'files']
-                logger.info(torrent_id)
-                logger.info(files)
-                file_list = [{
-                    "name": f[b'path'].decode('utf-8'),
-                    "size": format_size(f[b'size'])  # Formata o tamanho
-                } for f in files]
+                priorities = torrents[torrent_id.encode(
+                    'utf-8')].get(b'file_priorities', [])
+
+                file_list = []
+                for i, f in enumerate(files):
+                    priority = priorities[i] if i < len(priorities) else 1
+                    file_list.append({
+                        "name": f[b'path'].decode('utf-8'),
+                        "size": format_size(f[b'size']),
+                        "priority": priority
+                    })
+
                 return {"files": file_list}, 200
             else:
                 return {"message": "Torrent não encontrado."}, 404
         else:
             return {"message": "Erro ao conectar ao Deluge."}, 500
     except Exception as e:
+        logger.error(f"Erro ao listar arquivos: {e}")
         return {"message": f"Erro: {str(e)}"}, 500
 
 
@@ -168,13 +204,13 @@ def get_downloads():
         return {"downloads": downloads}, 200
     except Exception as e:
         return {"error": f"Erro: {str(e)}"}, 500
-# Endpoint para lidar com arquivos marcados como "false"
 
 
 @delugeTorrent.route('/cancel-files/<torrent_id>', methods=['POST'])
 def cancel_files(torrent_id):
     """
-    Endpoint para cancelar o download de arquivos marcados como false e excluir arquivos do disco.
+    Endpoint para atualizar prioridades de arquivos em um torrent.
+    Arquivos com prioridade 0 não serão baixados.
     """
     try:
         client = connect_deluge()
@@ -189,47 +225,43 @@ def cancel_files(torrent_id):
         # Ex: {"file_name_1": true, "file_name_2": false}
         file_selections = data["file_selections"]
 
+        # Converte torrent_id para bytes se necessário
+        if isinstance(torrent_id, str):
+            torrent_id_bytes = torrent_id.encode('utf-8')
+        else:
+            torrent_id_bytes = torrent_id
+
         # Verifica se o torrent existe
         torrents = client.call('core.get_torrents_status', {}, ['files'])
-        if torrent_id.encode('utf-8') not in torrents:
+        if torrent_id_bytes not in torrents:
             return {"message": "Torrent não encontrado."}, 404
 
-        files = torrents[torrent_id.encode('utf-8')][b'files']
+        # Obtém a lista de arquivos do torrent
+        files = torrents[torrent_id_bytes][b'files']
+
+        # Prepara a lista de prioridades (0=não baixar, 1=normal)
         file_priorities = []
-        excluidos = []
         for file in files:
             file_name = file[b'path'].decode('utf-8')
-            file_path = file_name  # Deluge já retorna o caminho completo
+            # Se o arquivo estiver marcado como false, define prioridade 0
+            # Caso contrário, define prioridade 1 (normal)
             priority = 0 if not file_selections.get(file_name, True) else 1
             file_priorities.append(priority)
 
-            # Remove os arquivos marcados como false
-            if not file_selections.get(file_name, True):
-                try:
-                    if os.path.exists(file_path):
-                        excluidos.append(file_path)
-                        os.remove(file_path)
-                        logger.info("ecluindo", file_path)
-                except Exception as e:
-                    return {"message": f"Erro ao excluir arquivo {file_name}: {str(e)}"}, 500
-
         # Atualiza as prioridades dos arquivos no Deluge
         client.call('core.set_torrent_file_priorities',
-                    torrent_id.encode('utf-8'), file_priorities)
+                    torrent_id_bytes, file_priorities)
 
-        return {"message": "Prioridades atualizadas e arquivos excluídos com sucesso.", "excluidos": excluidos}, 200
+        return {"message": "Prioridades de arquivos atualizadas com sucesso."}, 200
 
     except Exception as e:
+        logger.error(f"Erro ao atualizar prioridades: {e}")
         return {"message": f"Erro: {str(e)}"}, 500
 
 
+# Testa a conexão com o Deluge ao iniciar o servidor
 client = connect_deluge()
 if client:
     logger.info("✅ Conexão com o Deluge estabelecida com sucesso!")
 else:
     logger.info("❌ Falha ao conectar com o Deluge. Verifique as configurações.")
-# if __name__ == '__main__':
-#     # Testa a conexão com o Deluge ao iniciar o servidor
-
-#     # Inicia o servidor Flask
-#     app.run(host='0.0.0.0', port=5010, debug=True)
