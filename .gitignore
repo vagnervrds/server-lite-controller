@@ -1,6 +1,4 @@
 *.json
-*.jpg
-*.jpeg
 *.log
 *.pyc
 *.sqlite3

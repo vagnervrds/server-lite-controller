@@ -79,7 +79,7 @@
 
 1. Clone o repositório:
    ```bash
-   git clone https://github.com/seu-usuario/server-lite-controller.git
+   git clone https://github.com/vagnervrds/server-lite-controller.git
    cd server-lite-controller
    ```
 
