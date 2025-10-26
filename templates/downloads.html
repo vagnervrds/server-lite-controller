@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gerenciador de Downloads</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='styles.css') }}"
+    />
+
+    <script>
+      function isValidURL(url) {
+        try {
+          const urlObj = new URL(url.trim());
+          return urlObj.protocol === "http:" || urlObj.protocol === "https:";
+        } catch (e) {
+          return false;
+        }
+      }
+
+      function isMagnetLink(link) {
+        return link.trim().startsWith("magnet:?");
+      }
+
+      function startDownload() {
+        const urls = document.getElementById("urls").value.split("\n");
+        const folder = document.getElementById("folder").value.trim();
+        const validLinks = urls.filter(
+          (url) => isValidURL(url.trim()) || isMagnetLink(url.trim())
+        );
+
+        if (validLinks.length === 0) {
+          alert("Nenhum link válido encontrado.");
+          return;
+        }
+
+        validLinks.forEach((link) => {
+          fetch("/download", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: `url=${encodeURIComponent(
+              link.trim()
+            )}&folder=${encodeURIComponent(folder)}`,
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              console.log(`Download iniciado para: ${link.trim()}`);
+              updateProgress();
+            })
+            .catch((error) => console.error("Erro:", error));
+        });
+
+        alert("Links válidos foram adicionados à fila.");
+      }
+
+      function controlDownload(id, action) {
+        fetch("/downloads/control", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, action }),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            alert(data.message);
+            updateProgress();
+          })
+          .catch((error) => console.error("Erro:", error));
+      }
+
+      function deleteDownload(id) {
+        const deleteFiles = confirm("Excluir também os arquivos?");
+        fetch("/downloads/control", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id,
+            action: "delete",
+            delete_files: deleteFiles,
+          }),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            alert(data.message);
+            updateProgress();
+          })
+          .catch((error) => console.error("Erro:", error));
+      }
+
+      function updateProgress() {
+        fetch("/downloads/progress")
+          .then((response) => response.json())
+          .then((data) => {
+            const downloadList = document.querySelector(".download-list");
+            downloadList.innerHTML = "";
+            data.forEach((download) => {
+              console.log(download);
+              console.log(download.id);
+              var filepath = download.filepath;
+              var filename = filepath.substring(filepath.lastIndexOf("/") + 1);
+              const item = document.createElement("div");
+              item.className = "download-item";
+
+              item.innerHTML = `
+                            <strong>${filename}</strong>
+                            <div class="progress-bar">
+                                <div class="progress" style="width: ${download.progress}%;"></div>
+                            </div>
+                            <div class="status">${download.status}</div>
+                            <div id="bthorizontal">
+                            <button onclick="controlDownload('${download.id}', 'pause')">Pausar</button>
+                            <button onclick="controlDownload('${download.id}', 'resume')">Retomar</button>
+                            <button onclick="deleteDownload('${download.id}')">Excluir</button>
+
+                            </div>
+                            `;
+              downloadList.appendChild(item);
+            });
+          });
+      }
+
+      updateProgress();
+      setInterval(updateProgress, 1000); // Atualiza o progresso a cada segundo
+    </script>
+  </head>
+
+  <body>
+    <h1>Gerenciador de Downloads</h1>
+    <form onsubmit="event.preventDefault(); startDownload();">
+      <textarea
+        id="urls"
+        placeholder="Cole os links para download, uma por linha"
+      ></textarea>
+      <input
+        type="text"
+        id="folder"
+        placeholder="Insira a subpasta onde os downloads serão salvos"
+      />
+      <button id="btinicio" type="submit">Iniciar Downloads</button>
+    </form>
+    <div class="download-list"></div>
+  </body>
+</html>

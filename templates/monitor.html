@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
+    <title>Monitor de Recursos</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="monitor-container">
+        <h1>Monitor de Recursos do Sistema</h1>
+        
+        <div class="monitor-grid">
+            <!-- Status do Monitoramento -->
+            <div class="monitor-card full-width-card">
+                <div class="status-header">
+                    <h5>Status do Monitoramento</h5>
+                    <div class="status-text">
+                        <span class="status-indicator" id="status-indicator"></span>
+                        <span id="status-text">Verificando...</span>
+                    </div>
+                </div>
+                <div class="control-buttons">
+                    <button id="start-btn" class="btn-success">Iniciar Monitoramento</button>
+                    <button id="stop-btn" class="btn-danger">Parar Monitoramento</button>
+                </div>
+            </div>
+            
+            <!-- Uso Atual -->
+            <div class="monitor-card">
+                <h5>Uso Atual</h5>
+                
+                <!-- Calibração Info -->
+                <div id="calibration-info" class="calibration-info d-none">
+                    <strong>Calibrando Sistema...</strong>
+                    <div>Coletando amostras: <span id="calibration-samples">0</span></div>
+                    <div>Tempo restante: <span id="calibration-time">0</span>s</div>
+                </div>
+                
+                <!-- Uso do Disco -->
+                <div class="resource-section">
+                    <span class="resource-label">Uso do HD:</span>
+                    <div class="resource-value" id="disk-usage">0 B/s</div>
+                    <div class="progress-container">
+                        <div id="disk-progress" class="progress-bar" style="width: 0%;">0%</div>
+                    </div>
+                </div>
+                
+                <!-- Uso da Rede -->
+                <div class="resource-section">
+                    <span class="resource-label">Uso da Rede:</span>
+                    <div class="resource-value" id="network-usage">0 B/s</div>
+                    <div class="progress-container">
+                        <div id="network-progress" class="progress-bar" style="width: 0%;">0%</div>
+                    </div>
+                </div>
+                
+                <!-- Valores Máximos -->
+                <div class="max-values">
+                    <span class="resource-label">Valores máximos registrados:</span>
+                    <small>HD: <span id="max-disk-usage">0 B/s</span></small>
+                    <small>Rede: <span id="max-network-usage">0 B/s</span></small>
+                    <button id="reset-max-btn" class="btn-secondary btn-full">Resetar Valores Máximos</button>
+                </div>
+                
+                <!-- Aviso de Desligamento -->
+                <div id="shutdown-warning" class="shutdown-warning d-none">
+                    <h6>⚠️ Aviso de Desligamento</h6>
+                    <p>O sistema está abaixo dos limites mínimos de uso.</p>
+                    <p>Tempo restante: <span id="shutdown-timer">0</span> minutos</p>
+                    <div class="progress-container">
+                        <div id="shutdown-progress" class="progress-bar bg-warning" style="width: 0%;">0%</div>
+                    </div>
+                    <button id="cancel-shutdown-btn" class="btn-warning btn-full">Cancelar Desligamento</button>
+                </div>
+                
+                <!-- Histórico -->
+                <div class="chart-container">
+                    <h6>Histórico de Uso</h6>
+                    <canvas id="historyChart" width="400" height="200"></canvas>
+                </div>
+                
+                <div class="last-updated">
+                    Última atualização: <span id="last-updated">Nunca</span>
+                </div>
+            </div>
+            
+            <!-- Configurações -->
+            <div class="monitor-card">
+                <h5>Configurações</h5>
+                <form id="config-form">
+                    <div class="form-group">
+                        <label for="monitor-interval" class="form-label">Intervalo de Monitoramento (segundos)</label>
+                        <input type="number" class="form-control" id="monitor-interval" min="10" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="monitor-duration" class="form-label">Duração de Cada Monitoramento (segundos)</label>
+                        <input type="number" class="form-control" id="monitor-duration" min="1" max="30" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="disk-threshold" class="form-label">Limite Mínimo de Uso do HD (% do máximo)</label>
+                        <input type="number" class="form-control" id="disk-threshold" min="0" max="100" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="network-threshold" class="form-label">Limite Mínimo de Uso da Rede (% do máximo)</label>
+                        <input type="number" class="form-control" id="network-threshold" min="0" max="100" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="idle-time" class="form-label">Tempo de Inatividade para Desligar (minutos)</label>
+                        <input type="number" class="form-control" id="idle-time" min="1" required>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="debug-mode">
+                        <label class="form-check-label" for="debug-mode">Modo de Debug (Evita desligamento real)</label>
+                    </div>
+                    <button type="submit" class="btn-primary btn-full">Salvar Configurações</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Funções para formatação
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 B/s';
+            const k = 1024;
+            const sizes = ['B/s', 'KB/s', 'MB/s', 'GB/s', 'TB/s'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
+        }
+
+        // Carregar configurações
+        async function loadConfig() {
+            try {
+                const response = await fetch('/monitor/api/config');
+                const config = await response.json();
+                
+                document.getElementById('monitor-interval').value = config.monitor_interval;
+                document.getElementById('monitor-duration').value = config.monitor_duration;
+                document.getElementById('disk-threshold').value = config.disk_threshold;
+                document.getElementById('network-threshold').value = config.network_threshold;
+                document.getElementById('idle-time').value = config.idle_time_threshold;
+                document.getElementById('debug-mode').checked = config.debug_mode;
+            } catch (error) {
+                console.error('Erro ao carregar configurações:', error);
+            }
+        }
+
+        // Salvar configurações
+        document.getElementById('config-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const config = {
+                monitor_interval: parseInt(document.getElementById('monitor-interval').value),
+                monitor_duration: parseInt(document.getElementById('monitor-duration').value),
+                disk_threshold: parseInt(document.getElementById('disk-threshold').value),
+                network_threshold: parseInt(document.getElementById('network-threshold').value),
+                idle_time_threshold: parseInt(document.getElementById('idle-time').value),
+                debug_mode: document.getElementById('debug-mode').checked
+            };
+            
+            try {
+                const response = await fetch('/monitor/api/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+                
+                const result = await response.json();
+                alert(result.message);
+            } catch (error) {
+                console.error('Erro ao salvar configurações:', error);
+                alert('Erro ao salvar configurações. Verifique o console para mais detalhes.');
+            }
+        });
+
+        // Atualizar dados de uso
+        async function updateUsage() {
+            try {
+                const [usageResponse, statusResponse] = await Promise.all([
+                    fetch('/monitor/api/usage'),
+                    fetch('/monitor/api/status')
+                ]);
+                
+                const usage = await usageResponse.json();
+                const status = await statusResponse.json();
+                
+                // Atualizar valores
+                document.getElementById('disk-usage').textContent = formatBytes(usage.disk_usage);
+                document.getElementById('network-usage').textContent = formatBytes(usage.network_usage);
+                document.getElementById('max-disk-usage').textContent = formatBytes(usage.max_disk_usage);
+                document.getElementById('max-network-usage').textContent = formatBytes(usage.max_network_usage);
+                document.getElementById('last-updated').textContent = usage.last_updated || 'Nunca';
+                
+                // Atualizar barras de progresso
+                updateProgressBar('disk-progress', usage.disk_usage_percent);
+                updateProgressBar('network-progress', usage.network_usage_percent);
+                
+                // Atualizar informações de calibração
+                updateCalibrationInfo(usage, status);
+                
+                // Atualizar aviso de desligamento
+                updateShutdownWarning(status);
+                
+                // Configurar cores das barras baseadas nos limites
+                updateProgressColors(status);
+                
+            } catch (error) {
+                console.error('Erro ao carregar dados de uso:', error);
+            }
+        }
+
+        function updateProgressBar(id, percent) {
+            const progressBar = document.getElementById(id);
+            const value = Math.min(Math.max(percent, 0), 100).toFixed(1);
+            progressBar.style.width = value + '%';
+            progressBar.textContent = value + '%';
+        }
+
+        function updateCalibrationInfo(usage, status) {
+            const calibrationInfo = document.getElementById('calibration-info');
+            if (usage.calibration_active) {
+                calibrationInfo.classList.remove('d-none');
+                calibrationInfo.classList.add('calibrating');
+                document.getElementById('calibration-samples').textContent = usage.calibration_samples_collected || 0;
+                document.getElementById('calibration-time').textContent = Math.ceil(usage.calibration_time_remaining || 0);
+            } else if (status.calibration_completed) {
+                calibrationInfo.classList.remove('d-none', 'calibrating');
+                calibrationInfo.innerHTML = '<strong>✓ Calibração Concluída</strong><div>Sistema monitorando com valores calibrados</div>';
+            } else {
+                calibrationInfo.classList.add('d-none');
+            }
+        }
+
+        function updateShutdownWarning(status) {
+            const shutdownWarning = document.getElementById('shutdown-warning');
+            if (status.idle_timer_active) {
+                shutdownWarning.classList.remove('d-none');
+                const remainingTimeMin = status.idle_time_remaining;
+                document.getElementById('shutdown-timer').textContent = remainingTimeMin.toFixed(1);
+                
+                const totalTimeMin = status.idle_time_threshold || 30;
+                const elapsedPercent = Math.max(0, 100 - (remainingTimeMin / totalTimeMin * 100));
+                
+                updateProgressBar('shutdown-progress', elapsedPercent);
+                
+                if (status.shutdown_scheduled) {
+                    const progressBar = document.getElementById('shutdown-progress');
+                    progressBar.classList.remove('bg-warning');
+                    progressBar.classList.add('bg-danger');
+                }
+            } else {
+                shutdownWarning.classList.add('d-none');
+            }
+        }
+
+        function updateProgressColors(status) {
+            const diskProgressBar = document.getElementById('disk-progress');
+            const networkProgressBar = document.getElementById('network-progress');
+            
+            if (status.below_threshold) {
+                diskProgressBar.classList.add('bg-danger');
+                networkProgressBar.classList.add('bg-danger');
+            } else {
+                diskProgressBar.classList.remove('bg-danger');
+                networkProgressBar.classList.remove('bg-danger');
+            }
+        }
+
+        // Verificar status
+        async function checkStatus() {
+            try {
+                const response = await fetch('/monitor/api/status');
+                const status = await response.json();
+                
+                const indicator = document.getElementById('status-indicator');
+                const statusText = document.getElementById('status-text');
+                
+                if (status.active) {
+                    if (status.debug_mode) {
+                        indicator.className = 'status-indicator status-warning';
+                        statusText.innerHTML = 'Monitoramento Ativo (Modo Debug) <span class="debug-badge">DEBUG</span>';
+                    } else {
+                        indicator.className = 'status-indicator status-active';
+                        statusText.textContent = 'Monitoramento Ativo';
+                    }
+                } else {
+                    indicator.className = 'status-indicator status-inactive';
+                    statusText.textContent = 'Monitoramento Inativo';
+                }
+            } catch (error) {
+                console.error('Erro ao verificar status:', error);
+            }
+        }
+
+        // Event Listeners
+        document.getElementById('reset-max-btn').addEventListener('click', async function() {
+            if (confirm('Resetar valores máximos e reiniciar calibração?')) {
+                try {
+                    const response = await fetch('/monitor/api/reset-max', { method: 'POST' });
+                    const result = await response.json();
+                    alert(result.message);
+                    updateUsage();
+                } catch (error) {
+                    console.error('Erro ao resetar valores máximos:', error);
+                }
+            }
+        });
+
+        document.getElementById('cancel-shutdown-btn').addEventListener('click', async function() {
+            try {
+                const response = await fetch('/monitor/api/cancel-shutdown', { method: 'POST' });
+                const result = await response.json();
+                alert(result.message);
+                updateUsage();
+                checkStatus();
+            } catch (error) {
+                console.error('Erro ao cancelar desligamento:', error);
+            }
+        });
+
+        document.getElementById('start-btn').addEventListener('click', async function() {
+            try {
+                await fetch('/monitor/api/monitor/start', { method: 'POST' });
+                checkStatus();
+            } catch (error) {
+                console.error('Erro ao iniciar monitoramento:', error);
+            }
+        });
+
+        document.getElementById('stop-btn').addEventListener('click', async function() {
+            try {
+                await fetch('/monitor/api/monitor/stop', { method: 'POST' });
+                checkStatus();
+            } catch (error) {
+                console.error('Erro ao parar monitoramento:', error);
+            }
+        });
+
+        // Criar gráfico de histórico
+        let historyChart;
+        
+        async function loadHistoryData() {
+            try {
+                const response = await fetch('/monitor/api/history');
+                const historyData = await response.json();
+                
+                if (historyData.length === 0) return;
+                
+                const labels = historyData.map(point => {
+                    const date = new Date(point.timestamp);
+                    return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                });
+                
+                const diskData = historyData.map(point => point.disk_usage_percent);
+                const networkData = historyData.map(point => point.network_usage_percent);
+                
+                const ctx = document.getElementById('historyChart').getContext('2d');
+                
+                if (historyChart) {
+                    historyChart.destroy();
+                }
+                
+                historyChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'HD (%)',
+                                data: diskData,
+                                borderColor: '#0078d4',
+                                backgroundColor: 'rgba(0, 120, 212, 0.1)',
+                                tension: 0.4,
+                                fill: true
+                            },
+                            {
+                                label: 'Rede (%)',
+                                data: networkData,
+                                borderColor: '#28a745',
+                                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                                tension: 0.4,
+                                fill: true
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    color: '#d4d4d4'
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                ticks: {
+                                    color: '#d4d4d4'
+                                },
+                                grid: {
+                                    color: '#3c3c3c'
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: {
+                                    color: '#d4d4d4'
+                                },
+                                grid: {
+                                    color: '#3c3c3c'
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Erro ao carregar histórico:', error);
+            }
+        }
+
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', function() {
+            loadConfig();
+            checkStatus();
+            updateUsage();
+            loadHistoryData();
+            
+            // Atualizar dados a cada 5 segundos
+            setInterval(function() {
+                updateUsage();
+                checkStatus();
+            }, 5000);
+            
+            // Atualizar histórico a cada minuto
+            setInterval(function() {
+                loadHistoryData();
+            }, 60000);
+        });
+    </script>
+</body>
+</html>

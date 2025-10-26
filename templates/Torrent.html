@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <title>Gerenciador de Downloads</title>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Gerenciador de Downloads</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %} 
+        {% if messages %} 
+            {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %} 
+        {% endif %} 
+        {% endwith %}
+
+        <form id="add-download-form" method="POST">
+            <div class="form-group">
+                <label for="magnet_link">Adicionar Magnet Link:</label>
+                <input type="text" id="magnet_link" name="magnet_link" placeholder="Cole o magnet link aqui" required />
+            </div>
+            <button type="submit">Adicionar Download</button>
+        </form>
+
+        <div class="downloads">
+            <h2>Downloads Ativos</h2>
+            <div id="downloads-container">
+                <p>Carregando downloads...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='torrent.js') }}"></script>
+</body>
+
+</html>
