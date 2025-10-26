@@ -1,6 +1,7 @@
 import os
 from flask import Flask, render_template, request, redirect, flash, Blueprint, jsonify
 import secrets
+import re
 from deluge_client import DelugeRPCClient
 from logger_config import setup_logger
 from utils import ler_settings
@@ -11,6 +12,37 @@ settings = ler_settings()
 d = settings.delug
 
 delugeTorrent = Blueprint('delugeTorrent', __name__)
+
+
+def extrair_hash_magnet(magnet_link):
+    """
+    Extrai o hash (info_hash) de um magnet link.
+    """
+    match = re.search(r'btih:([a-f0-9A-F]{40})', magnet_link, re.IGNORECASE)
+    if match:
+        return match.group(1).lower()
+    return None
+
+
+def torrent_ja_existe(client, info_hash):
+    """
+    Verifica se um torrent já existe na sessão do Deluge.
+    Retorna (existe, torrent_id, nome) ou (False, None, None)
+    """
+    try:
+        torrents = client.call('core.get_torrents_status', {}, ['name'])
+        for torrent_id, data in torrents.items():
+            torrent_id_str = torrent_id.decode(
+                'utf-8') if isinstance(torrent_id, bytes) else torrent_id
+            # Comparar o hash
+            if torrent_id_str.lower() == info_hash.lower():
+                nome = data[b'name'].decode(
+                    'utf-8') if isinstance(data[b'name'], bytes) else data[b'name']
+                return True, torrent_id_str, nome
+        return False, None, None
+    except Exception as e:
+        logger.error(f"Erro ao verificar torrent existente: {e}")
+        return False, None, None
 
 
 def connect_deluge():
@@ -45,13 +77,32 @@ def index():
             try:
                 client = connect_deluge()
                 if client:
-                    # Adiciona o magnet link ao Deluge
-                    client.call('core.add_torrent_magnet', magnet_link, {})
-                    flash('Download adicionado com sucesso!', 'success')
+                    # Extrair o hash do magnet link
+                    info_hash = extrair_hash_magnet(magnet_link)
+
+                    if info_hash:
+                        # Verificar se o torrent já existe
+                        existe, torrent_id_existente, nome_torrent = torrent_ja_existe(
+                            client, info_hash)
+
+                        if existe:
+                            flash(
+                                f'Este torrent já está na sua lista: {nome_torrent}', 'warning')
+                        else:
+                            # Adiciona o magnet link ao Deluge
+                            client.call('core.add_torrent_magnet',
+                                        magnet_link, {})
+                            flash('Download adicionado com sucesso!', 'success')
+                    else:
+                        flash('Link magnet inválido ou mal formatado.', 'error')
                 else:
                     flash('Erro ao conectar ao Deluge.', 'error')
             except Exception as e:
-                flash(f'Erro ao adicionar download: {str(e)}', 'error')
+                # Verificar se é erro de torrent duplicado
+                if 'already in session' in str(e).lower():
+                    flash('Este torrent já está na sua lista de downloads.', 'warning')
+                else:
+                    flash(f'Erro ao adicionar download: {str(e)}', 'error')
         else:
             flash('Por favor, insira um magnet link válido.', 'error')
         return redirect('/')
@@ -305,6 +356,31 @@ def api_add_magnet():
                 "message": "Erro ao conectar ao Deluge"
             }), 500
 
+        # Extrair o hash do magnet link
+        info_hash = extrair_hash_magnet(magnet_link)
+
+        if not info_hash:
+            logger.error(
+                f"Não foi possível extrair hash do magnet link: {magnet_link}")
+            return jsonify({
+                "success": False,
+                "message": "Link magnet inválido ou mal formatado"
+            }), 400
+
+        # Verificar se o torrent já existe
+        existe, torrent_id_existente, nome_torrent = torrent_ja_existe(
+            client, info_hash)
+
+        if existe:
+            logger.info(
+                f"Torrent já existe na sessão: {nome_torrent} ({torrent_id_existente})")
+            return jsonify({
+                "success": True,
+                "message": f"Este torrent já está na sua lista: {nome_torrent}",
+                "torrent_id": torrent_id_existente,
+                "already_exists": True
+            }), 200
+
         # Adicionar o torrent ao Deluge
         torrent_id = client.call('core.add_torrent_magnet', magnet_link, {})
 
@@ -313,7 +389,8 @@ def api_add_magnet():
             return jsonify({
                 "success": True,
                 "message": "Link magnet adicionado com sucesso",
-                "torrent_id": torrent_id.decode('utf-8') if isinstance(torrent_id, bytes) else torrent_id
+                "torrent_id": torrent_id.decode('utf-8') if isinstance(torrent_id, bytes) else torrent_id,
+                "already_exists": False
             }), 200
         else:
             logger.error("Falha ao adicionar torrent magnet")

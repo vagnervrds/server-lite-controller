@@ -98,46 +98,13 @@ def extrair_titulo_magnet(magnet_link):
             return titulo
         else:
             # Se não encontrar título, retorna parte do hash
-            hash_match = re.search(r'btih:([a-f0-9A-F]+)', magnet_link, re.IGNORECASE)
+            hash_match = re.search(
+                r'btih:([a-f0-9A-F]+)', magnet_link, re.IGNORECASE)
             if hash_match:
                 return f"Torrent {hash_match.group(1)[:8]}..."
             return "Sem título"
     except:
         return "Sem título"
-
-
-def enviar_para_api(magnet_link, url_api):
-    """
-    Envia um magnet link para a API
-    """
-    try:
-        payload = json.dumps({
-            "magnetLink": magnet_link
-        })
-
-        headers = {
-            'Content-Type': 'application/json'
-        }
-
-        data = payload.encode('utf-8')
-
-        requisicao = urllib.request.Request(
-            url_api,
-            data=data,
-            headers=headers,
-            method='POST'
-        )
-
-        with urllib.request.urlopen(requisicao, timeout=10) as resposta:
-            resultado = resposta.read().decode('utf-8')
-            return True, resultado
-
-    except urllib.error.HTTPError as e:
-        return False, f"Erro HTTP {e.code}: {e.reason}"
-    except urllib.error.URLError as e:
-        return False, f"Erro de conexão: {e.reason}"
-    except Exception as e:
-        return False, f"Erro: {str(e)}"
 
 
 @magnet_bp.route('/')
@@ -207,59 +174,6 @@ def extrair():
         return jsonify({
             'sucesso': False,
             'erro': f'Erro ao processar requisição: {str(e)}'
-        }), 500
-
-
-@magnet_bp.route('/enviar', methods=['POST'])
-def enviar():
-    """
-    Rota para enviar magnet links selecionados para a API
-    """
-    try:
-        data = request.get_json()
-        links = data.get('links', [])
-        url_api = data.get('url_api', 'http://192.168.2.38:5010/torrent/api/magnet')
-
-        if not links:
-            return jsonify({
-                'sucesso': False,
-                'erro': 'Nenhum link foi selecionado'
-            }), 400
-
-        resultados = []
-        sucessos = 0
-        falhas = 0
-
-        for link in links:
-            sucesso, resultado = enviar_para_api(link, url_api)
-            
-            if sucesso:
-                sucessos += 1
-                resultados.append({
-                    'link': link,
-                    'sucesso': True,
-                    'mensagem': 'Enviado com sucesso'
-                })
-            else:
-                falhas += 1
-                resultados.append({
-                    'link': link,
-                    'sucesso': False,
-                    'mensagem': resultado
-                })
-
-        return jsonify({
-            'sucesso': True,
-            'total': len(links),
-            'sucessos': sucessos,
-            'falhas': falhas,
-            'resultados': resultados
-        })
-
-    except Exception as e:
-        return jsonify({
-            'sucesso': False,
-            'erro': f'Erro ao enviar links: {str(e)}'
         }), 500
 
 

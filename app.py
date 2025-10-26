@@ -1,3 +1,4 @@
+from blueprint_magnet import magnet_bp
 from urllib.parse import unquote, urlparse
 import os
 from flask import Flask, render_template, request, jsonify
@@ -13,7 +14,9 @@ from logger_config import setup_logger
 from utils import ler_settings
 logger = setup_logger(__name__)
 
+
 app = Flask(__name__)
+app.register_blueprint(magnet_bp)
 app.secret_key = secrets.token_hex(16)
 app.register_blueprint(delugeTorrent, url_prefix='/torrent')
 app.register_blueprint(monitorBlueP, url_prefix='/monitor')
