@@ -79,12 +79,48 @@ thead {
 }
 td,
 th {
-  padding: 12px 20px;
-  border: 1px solid #3c3c3c;
-  text-align: left;
+padding: 12px 20px;
+border: 1px solid #3c3c3c;
+text-align: left;
+vertical-align: middle;
 }
 th {
-  font-weight: 500;
+font-weight: 500;
+}
+td:nth-child(2),
+.item-name {
+text-align: left !important;
+padding-left: 20px;
+}
+.item-name {
+max-width: 400px;
+overflow: hidden;
+text-overflow: ellipsis;
+white-space: nowrap;
+}
+.item-name a {
+display: inline-flex;
+align-items: center;
+max-width: 100%;
+overflow: hidden;
+gap: 8px;
+}
+.item-name i {
+min-width: 16px;
+text-align: center;
+flex-shrink: 0;
+}
+.item-name span {
+overflow: hidden;
+text-overflow: ellipsis;
+white-space: nowrap;
+max-width: 350px;
+flex-shrink: 1;
+min-width: 0;
+}
+.item-name .file-path {
+flex-shrink: 0;
+max-width: none;
 }
 tr:nth-child(2n) {
   background-color: #2a2a2a;
@@ -101,10 +137,8 @@ table input[type="checkbox"] {
   cursor: pointer;
 }
 a {
-  color: #fff;
-  text-decoration: none;
-  display: flex;
-  align-items: center;
+color: #fff;
+text-decoration: none;
 }
 a:hover {
   text-decoration: underline;
@@ -142,61 +176,55 @@ button:hover {
 }
 
 /* Ícones específicos para pastas e arquivos */
+.item-name i {
+margin-right: 8px;
+min-width: 16px;
+text-align: center;
+}
+
 .fas.fa-folder {
-  color: #ffc107; /* Amarelo */
-  margin-right: 10px;
+color: #ffc107;
 }
 
 .fas.fa-file {
-  color: #90caf9; /* Azul claro */
-  margin-right: 10px;
+color: #90caf9;
 }
 
-/* Ícones específicos por tipo de arquivo */
 .fas.fa-file-pdf {
-  color: #ef5350; /* Vermelho */
-  margin-right: 10px;
+color: #ef5350;
 }
 
 .fas.fa-file-word {
-  color: #42a5f5; /* Azul */
-  margin-right: 10px;
+color: #42a5f5;
 }
 
 .fas.fa-file-excel {
-  color: #66bb6a; /* Verde */
-  margin-right: 10px;
+color: #66bb6a;
 }
 
 .fas.fa-file-powerpoint {
-  color: #ff7043; /* Laranja */
-  margin-right: 10px;
+color: #ff7043;
 }
 
 .fas.fa-file-image {
-  color: #ab47bc; /* Roxo */
-  margin-right: 10px;
+color: #ab47bc;
 }
 
 .fas.fa-file-audio,
 .fas.fa-file-video {
-  color: #7e57c2; /* Roxo mais escuro */
-  margin-right: 10px;
+color: #7e57c2;
 }
 
 .fas.fa-file-archive {
-  color: #8d6e63; /* Marrom */
-  margin-right: 10px;
+color: #8d6e63;
 }
 
 .fas.fa-file-code {
-  color: #26a69a; /* Verde-água */
-  margin-right: 10px;
+color: #26a69a;
 }
 
 .fas.fa-file-alt {
-  color: #bdbdbd; /* Cinza */
-  margin-right: 10px;
+color: #bdbdbd;
 }
 
 /* Estilos para os resultados de pesquisa */
@@ -208,8 +236,10 @@ button:hover {
 }
 
 .search-result {
-  display: flex;
-  align-items: center;
+display: flex;
+align-items: center;
+flex-wrap: wrap;
+gap: 8px;
 }
 
 .download-button {

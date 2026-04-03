@@ -59,7 +59,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Função para obter o ícone apropriado para o tipo de arquivo
+  // Função para truncar nomes muito longos
+function truncateName(name, maxLength = 50) {
+if (name.length <= maxLength) return name;
+const ext = name.split('.').pop();
+const nameWithoutExt = name.substring(0, name.lastIndexOf('.'));
+const truncatedName = nameWithoutExt.substring(0, maxLength - ext.length - 4) + '...';
+return truncatedName + '.' + ext;
+}
+
+// Função para obter o ícone apropriado para o tipo de arquivo
   function getFileIcon(filename) {
     const extension = filename.split('.').pop().toLowerCase();
 
@@ -161,10 +170,11 @@ document.addEventListener("DOMContentLoaded", () => {
       checkboxCell.appendChild(checkbox);
       row.appendChild(checkboxCell);
 
-      const nameCell = document.createElement("td");
-      const link = document.createElement("a");
-      link.href = "#";
-      link.innerHTML = '<i class="fas fa-arrow-left"></i> Voltar';
+const nameCell = document.createElement("td");
+nameCell.className = "item-name";
+const link = document.createElement("a");
+link.href = "#";
+link.innerHTML = '<i class="fas fa-arrow-left"></i> Voltar';
       link.addEventListener("click", e => {
         e.preventDefault();
         const parts = currentPath.split("/").filter(part => part);
@@ -225,10 +235,11 @@ document.addEventListener("DOMContentLoaded", () => {
         const icon = document.createElement("i");
         icon.className = isFolder ? "fas fa-folder" : getFileIcon(item.name);
 
-        const textSpan = document.createElement("span");
-        textSpan.textContent = item.name + (isFolder ? "/" : "");
+const textSpan = document.createElement("span");
+textSpan.textContent = item.name + (isFolder ? "/" : "");
+textSpan.title = item.name;
 
-        if (isFolder) {
+if (isFolder) {
           const link = document.createElement("a");
           link.href = "#";
           link.appendChild(icon);

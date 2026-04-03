@@ -324,29 +324,33 @@
     <div class="monitor-container">
         <h1>Monitor do Servidor</h1>
 
-        <!-- Barra de info do servidor -->
-        <div class="server-bar">
-            <div class="server-bar-item">
-                <span>Host:</span>
-                <strong id="sys-hostname">...</strong>
-            </div>
-            <div class="server-bar-item">
-                <span>IP:</span>
-                <strong id="sys-ip">...</strong>
-            </div>
-            <div class="server-bar-item">
-                <span>Uptime:</span>
-                <strong id="sys-uptime">...</strong>
-            </div>
-            <div class="server-bar-item">
-                <span>OS:</span>
-                <strong id="sys-os">...</strong>
-            </div>
-            <div class="server-bar-item" style="margin-left:auto;">
-                <span class="status-indicator" id="status-indicator"></span>
-                <strong id="status-text">Verificando...</strong>
-            </div>
-        </div>
+<!-- Barra de info do servidor -->
+<div class="server-bar">
+<div class="server-bar-item">
+<span>Host:</span>
+<strong id="sys-hostname">...</strong>
+</div>
+<div class="server-bar-item">
+<span>IP Local:</span>
+<strong id="sys-ip-local">...</strong>
+</div>
+<div class="server-bar-item">
+<span>IP Externo:</span>
+<strong id="sys-ip-external">...</strong>
+</div>
+<div class="server-bar-item">
+<span>Uptime:</span>
+<strong id="sys-uptime">...</strong>
+</div>
+<div class="server-bar-item">
+<span>OS:</span>
+<strong id="sys-os">...</strong>
+</div>
+<div class="server-bar-item" style="margin-left:auto;">
+<span class="status-indicator" id="status-indicator"></span>
+<strong id="status-text">Verificando...</strong>
+</div>
+</div>
 
         <!-- Métricas do sistema -->
         <div class="metrics-grid">
@@ -517,15 +521,16 @@
             return 'bar-red';
         }
 
-        // ── Sistema ─────────────────────────────────────────────────────────
-        async function updateSystem() {
-            try {
-                const r = await fetch('/monitor/api/system');
-                const d = await r.json();
+// ── Sistema ─────────────────────────────────────────────────────────
+async function updateSystem() {
+try {
+const r = await fetch('/monitor/api/system');
+const d = await r.json();
 
-                document.getElementById('sys-hostname').textContent = d.hostname || 'N/A';
-                document.getElementById('sys-ip').textContent = d.ip || 'N/A';
-                document.getElementById('sys-uptime').textContent = d.uptime || 'N/A';
+document.getElementById('sys-hostname').textContent = d.hostname || 'N/A';
+document.getElementById('sys-ip-local').textContent = d.ip_local || 'N/A';
+document.getElementById('sys-ip-external').textContent = d.ip_external || 'N/A';
+document.getElementById('sys-uptime').textContent = d.uptime || 'N/A';
 
                 // OS: encurtar para exibição
                 let osText = d.os || 'N/A';
