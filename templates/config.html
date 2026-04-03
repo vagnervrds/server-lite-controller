@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configurações - Servidor Lite</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        /* Ajustes específicos para a página de configuração que não estão no styles.css */
+        .btn-back {
+            display: inline-block;
+            margin-top: 20px;
+            color: #d4d4d4;
+            text-decoration: none;
+            font-size: 0.9rem;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .btn-back:hover {
+            opacity: 1;
+            text-decoration: underline;
+        }
+
+        #message {
+            margin-top: 15px;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Configurações do Servidor</h1>
+
+        <form id="configForm">
+            <div class="form-group" style="width: 100%;">
+                <label for="download_dir">Diretório de Downloads / File Manager</label>
+<input type="text" id="download_dir" name="download_dir" value=""
+placeholder="/caminho/para/arquivos">
+            </div>
+
+            <button type="submit">Salvar Alterações</button>
+        </form>
+
+        <div id="message" class="flash"></div>
+
+        <a href="/" class="btn-back">← Voltar ao Início</a>
+</div>
+
+<script>
+async function loadConfig() {
+    try {
+        const response = await fetch('/api/config');
+        const data = await response.json();
+        if (data.DOWNLOAD_DIR) {
+            document.getElementById('download_dir').value = data.DOWNLOAD_DIR;
+        }
+    } catch (error) {
+        console.error('Erro ao carregar config:', error);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadConfig);
+
+document.getElementById('configForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const messageDiv = document.getElementById('message');
+
+            try {
+                const response = await fetch('/config', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                messageDiv.style.display = 'block';
+                if (response.ok) {
+                    messageDiv.className = 'flash success';
+                    messageDiv.textContent = result.message;
+                } else {
+                    messageDiv.className = 'flash error';
+                    messageDiv.textContent = result.error || 'Erro ao salvar.';
+                }
+            } catch (error) {
+                messageDiv.style.display = 'block';
+                messageDiv.className = 'flash error';
+                messageDiv.textContent = 'Erro de conexão.';
+            }
+
+            setTimeout(() => {
+                messageDiv.style.display = 'none';
+            }, 5000);
+        });
+    </script>
+    <script src="/static/menu.js"></script>
+</body>
+
+</html>

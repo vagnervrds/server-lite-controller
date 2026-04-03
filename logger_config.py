@@ -1,37 +1,48 @@
 import logging
+import os
 from logging.handlers import RotatingFileHandler
 
+_root_configured = False
 
-def setup_logger(name, log_file='app.log', level=logging.DEBUG, max_bytes=200 * 1024, backup_count=5):
+
+def setup_logger(name, log_file='app.log', level=logging.INFO,
+                 max_bytes=5 * 1024 * 1024, backup_count=3):
     """
-    Configura um logger com rotação de arquivo e saída no terminal.
-
-    :param name: Nome do logger (geralmente o nome do módulo).
-    :param log_file: Nome do arquivo de log.
-    :param level: Nível de log.
-    :param max_bytes: Tamanho máximo do arquivo de log em bytes.
-    :param backup_count: Número máximo de backups de log.
-    :return: Instância configurada do logger.
+    Configura o logger raiz uma única vez e retorna o logger nomeado.
+    Chamadas subsequentes apenas retornam o logger do módulo correspondente.
     """
-    # Configuração do handler de arquivo com rotação
-    file_handler = RotatingFileHandler(
-        log_file, maxBytes=max_bytes, backupCount=backup_count
-    )
-    file_handler.setFormatter(
-        logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    )
+    global _root_configured
 
-    # Configuração do handler de saída no terminal
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(
-        logging.Formatter('%(name)s - %(levelname)s - %(message)s')
-    )
+    if not _root_configured:
+        log_dir = 'log'
+        os.makedirs(log_dir, exist_ok=True)
+        log_path = os.path.join(log_dir, log_file)
 
-    # Configurar o logger
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
+        fmt = logging.Formatter(
+            '%(asctime)s  %(levelname)-8s  %(name)s:%(lineno)d  %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
 
-    return logger
+        file_handler = RotatingFileHandler(
+            log_path, maxBytes=max_bytes, backupCount=backup_count,
+            encoding='utf-8'
+        )
+        file_handler.setFormatter(fmt)
+        file_handler.setLevel(level)
+
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(fmt)
+        console_handler.setLevel(level)
+
+        root = logging.getLogger()
+        root.setLevel(level)
+        root.addHandler(file_handler)
+        root.addHandler(console_handler)
+
+        # Silencia bibliotecas muito verbosas
+        logging.getLogger('werkzeug').setLevel(logging.WARNING)
+        logging.getLogger('urllib3').setLevel(logging.WARNING)
+
+        _root_configured = True
+
+    return logging.getLogger(name)

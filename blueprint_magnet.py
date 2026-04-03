@@ -2,10 +2,14 @@
 from flask import Blueprint, render_template, jsonify, request
 import urllib.request
 import urllib.error
+import urllib.parse
 import re
 import ssl
 import gzip
 import json
+from logger_config import setup_logger
+
+logger = setup_logger(__name__)
 
 
 # Criar o blueprint
@@ -36,7 +40,7 @@ def fazer_requisicao_realista(url):
 
         requisicao = urllib.request.Request(url, headers=headers)
 
-        with urllib.request.urlopen(requisicao, context=contexto_ssl, timeout=15) as resposta:
+        with urllib.request.urlopen(requisicao, context=contexto_ssl, timeout=90) as resposta:
             conteudo = resposta.read()
 
             encoding = resposta.headers.get('Content-Encoding', '').lower()
@@ -105,6 +109,85 @@ def extrair_titulo_magnet(magnet_link):
             return "Sem título"
     except:
         return "Sem título"
+
+
+def _extrair_hash(magnet_link):
+    """Extrai o info_hash de um magnet link (hex ou base32 → hex)."""
+    match = re.search(r'btih:([a-f0-9]{40})', magnet_link, re.IGNORECASE)
+    if match:
+        return match.group(1).lower()
+    match = re.search(r'btih:([A-Z2-7]{32})', magnet_link, re.IGNORECASE)
+    if match:
+        import base64
+        try:
+            return base64.b32decode(match.group(1).upper()).hex()
+        except Exception:
+            return match.group(1).lower()
+    return None
+
+
+def _resolver_nome_via_deluge(magnet_link, info_hash):
+    """
+    Tenta obter o nome do torrent via Deluge:
+    1. Verifica se o hash já está na sessão do Deluge.
+    2. Tenta core.get_torrent_info() para buscar metadados do magnet via DHT.
+    Retorna o nome (str) ou None.
+    """
+    try:
+        from deluge_torrent import connect_deluge
+        client = connect_deluge()
+        if not client:
+            return None
+
+        # 1. Torrent já está na sessão?
+        torrents = client.call('core.get_torrents_status', {}, ['name'])
+        for tid, data in torrents.items():
+            tid_str = tid.decode('utf-8') if isinstance(tid, bytes) else tid
+            if tid_str.lower() == info_hash:
+                name = data.get(b'name') or data.get('name', b'')
+                if isinstance(name, bytes):
+                    name = name.decode('utf-8', errors='replace')
+                if name:
+                    logger.info(f"Nome resolvido via sessão Deluge: {name}")
+                    return name
+
+        # 2. Busca metadados do magnet via DHT (get_torrent_info)
+        try:
+            info = client.call('core.get_torrent_info', magnet_link)
+            if info:
+                name = info.get(b'name') or info.get('name', b'')
+                if isinstance(name, bytes):
+                    name = name.decode('utf-8', errors='replace')
+                if name:
+                    logger.info(f"Nome resolvido via get_torrent_info: {name}")
+                    return name
+        except Exception as e:
+            logger.debug(f"get_torrent_info não disponível: {e}")
+
+    except Exception as e:
+        logger.warning(f"Erro ao resolver nome via Deluge: {e}")
+
+    return None
+
+
+@magnet_bp.route('/resolve-title', methods=['POST'])
+def resolve_title():
+    """
+    Recebe um magnet link e tenta retornar o nome real do torrent via Deluge.
+    Usado pelo frontend para enriquecer links que têm apenas o hash como título.
+    """
+    data = request.get_json() or {}
+    magnet_link = data.get('magnet', '').strip()
+
+    if not magnet_link:
+        return jsonify({'nome': None})
+
+    info_hash = _extrair_hash(magnet_link)
+    if not info_hash:
+        return jsonify({'nome': None})
+
+    nome = _resolver_nome_via_deluge(magnet_link, info_hash)
+    return jsonify({'nome': nome})
 
 
 @magnet_bp.route('/')

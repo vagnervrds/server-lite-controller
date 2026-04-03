@@ -8,8 +8,9 @@ from utils import ler_settings
 fileManager = Blueprint('fileManager', __name__)
 
 # Configurações
-settings = ler_settings()
-DOWNLOAD_DIR = settings.DOWNLOAD_DIR
+def get_download_dir():
+    settings = ler_settings()
+    return settings.DOWNLOAD_DIR if settings else "/mnt/dietpi_userdata/downloads"
 
 # Adicione mais conforme necessário
 ALLOWED_EXTENSIONS = set(
@@ -24,7 +25,7 @@ def allowed_file(filename):
 
 # Função para listar arquivos e pastas
 def list_directory(req_path):
-    abs_path = os.path.join(DOWNLOAD_DIR, req_path)
+    abs_path = os.path.join(get_download_dir(), req_path)
 
     if not os.path.exists(abs_path):
         abort(404, description="Caminho não encontrado")
@@ -67,7 +68,7 @@ def api_upload():
     if not files:
         return jsonify({'success': False, 'message': 'Nenhum arquivo selecionado'}), 400
 
-    upload_path = os.path.join(DOWNLOAD_DIR, current_path)
+    upload_path = os.path.join(get_download_dir(), current_path)
     if not os.path.exists(upload_path):
         os.makedirs(upload_path)
 
@@ -107,7 +108,7 @@ def api_create_folder():
     if folder_name:
         folder_name = secure_filename(folder_name)
         new_folder_path = os.path.join(
-            DOWNLOAD_DIR, current_path, folder_name)
+            get_download_dir(), current_path, folder_name)
         try:
             # Adicionado exist_ok para evitar erros se a pasta já existir
             os.makedirs(new_folder_path, exist_ok=True)
@@ -131,7 +132,7 @@ def api_delete_multiple():
     if not isinstance(targets, list):
         return jsonify({'success': False, 'message': 'Alvos inválidos'}), 400
 
-    upload_path = os.path.join(DOWNLOAD_DIR, current_path)
+    upload_path = os.path.join(get_download_dir(), current_path)
     if not os.path.exists(upload_path):
         return jsonify({'success': False, 'message': 'Caminho atual não encontrado'}), 404
 
@@ -174,8 +175,8 @@ def api_search():
         return jsonify({'success': False, 'message': 'Consulta de pesquisa vazia'}), 400
 
     matches = []
-    for root, dirs, files in os.walk(DOWNLOAD_DIR):
-        rel_root = os.path.relpath(root, DOWNLOAD_DIR)
+    for root, dirs, files in os.walk(get_download_dir()):
+        rel_root = os.path.relpath(root, get_download_dir())
         # Procurar em pastas
         for dir_name in dirs:
             if fnmatch.fnmatch(dir_name.lower(), f'*{query}*'):
@@ -197,4 +198,4 @@ def api_search():
 # Rota para download de arquivos
 @fileManager.route('/download/<path:filename>', methods=['GET'])
 def download_file(filename):
-    return send_from_directory(DOWNLOAD_DIR, filename, as_attachment=True)
+    return send_from_directory(get_download_dir(), filename, as_attachment=True)

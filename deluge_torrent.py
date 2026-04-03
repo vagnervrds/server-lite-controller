@@ -1,4 +1,6 @@
 import os
+import shutil
+import platform
 from flask import Flask, render_template, request, redirect, flash, Blueprint, jsonify
 import secrets
 import re
@@ -8,19 +10,39 @@ from utils import ler_settings
 
 # Configurar o logger
 logger = setup_logger(__name__)
-settings = ler_settings()
-d = settings.delug
 
-delugeTorrent = Blueprint('delugeTorrent', __name__)
+
+def _get_deluge_config():
+    """Carrega as credenciais do Deluge sob demanda para evitar falhas na importação."""
+    settings = ler_settings()
+    if settings is None or not hasattr(settings, 'delug'):
+        logger.error("Configurações do Deluge não encontradas no banco de dados.")
+        return None
+    return settings.delug
+
+delugeTorrent = Blueprint('delugeTorrent', __name__,
+                          template_folder='templates',
+                          static_folder='static',)
 
 
 def extrair_hash_magnet(magnet_link):
     """
     Extrai o hash (info_hash) de um magnet link.
+    Suporta SHA-1 em hexadecimal (40 chars) ou Base32 (32 chars A-Z2-7).
     """
-    match = re.search(r'btih:([a-f0-9A-F]{40})', magnet_link, re.IGNORECASE)
+    # Hex (40 caracteres)
+    match = re.search(r'btih:([a-f0-9]{40})', magnet_link, re.IGNORECASE)
     if match:
         return match.group(1).lower()
+    # Base32 (32 caracteres)
+    match = re.search(r'btih:([A-Z2-7]{32})', magnet_link, re.IGNORECASE)
+    if match:
+        import base64
+        try:
+            decoded = base64.b32decode(match.group(1).upper())
+            return decoded.hex()
+        except Exception:
+            return match.group(1).lower()
     return None
 
 
@@ -45,22 +67,161 @@ def torrent_ja_existe(client, info_hash):
         return False, None, None
 
 
-def connect_deluge():
+def get_disk_usage():
     """
-    Conecta ao cliente Deluge usando as credenciais fornecidas.
-    Retorna o cliente conectado ou None em caso de erro.
+    Obtém informações sobre o uso do disco onde os downloads são salvos.
+    Retorna um dicionário com total, usado, livre e porcentagem.
     """
     try:
-        client = DelugeRPCClient(
-            d.DELUGE_HOST,
-            d.DELUGE_PORT,
-            d.DELUGE_USERNAME,
-            d.DELUGE_PASSWORD
-        )
+        # Detectar o sistema operacional e definir o caminho correto
+        settings = ler_settings()
+        download_path = settings.DOWNLOAD_DIR if settings else "/mnt/dietpi_userdata/downloads"
+
+        # Obter estatísticas do disco
+        disk_stats = shutil.disk_usage(download_path)
+
+        # Converter bytes para GB
+        total_gb = disk_stats.total / (1024 ** 3)
+        used_gb = disk_stats.used / (1024 ** 3)
+        free_gb = disk_stats.free / (1024 ** 3)
+        percent = (disk_stats.used / disk_stats.total) * 100
+
+        return {
+            "total": round(total_gb, 2),
+            "used": round(used_gb, 2),
+            "free": round(free_gb, 2),
+            "percent": round(percent, 2),
+            "path": download_path
+        }
+    except Exception as e:
+        logger.error(f"Erro ao obter uso do disco: {e}")
+        return {
+            "total": 0,
+            "used": 0,
+            "free": 0,
+            "percent": 0,
+            "path": "N/A",
+            "error": str(e)
+        }
+
+
+def _find_deluge_localclient_password():
+    """
+    Tenta localizar o arquivo auth do Deluge e extrair a senha do localclient.
+    Retorna a senha se encontrada, ou None.
+    """
+    import glob
+
+    # 1. Caminhos fixos conhecidos
+    static_candidates = [
+        '/mnt/dietpi_userdata/deluge/auth',
+        os.path.expanduser('~/.config/deluge/auth'),
+        '/var/lib/deluged/.config/deluge/auth',
+        '/home/deluge/.config/deluge/auth',
+        '/root/.config/deluge/auth',
+        os.path.join(os.environ.get('APPDATA', ''), 'deluge', 'auth'),
+    ]
+
+    # 2. Glob: qualquer usuário em /home ou /var
+    static_candidates += glob.glob('/home/*/.config/deluge/auth')
+    static_candidates += glob.glob('/var/lib/*/.config/deluge/auth')
+    static_candidates += glob.glob('/var/lib/*/deluge/auth')
+
+    # 3. Tenta ler o config dir do serviço systemd do Deluge
+    for service_file in glob.glob('/etc/systemd/system/deluge*.service') + \
+                        glob.glob('/lib/systemd/system/deluge*.service'):
+        try:
+            with open(service_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if 'DELUGED_CONF' in line or '--config' in line:
+                        # Extrai o caminho do config
+                        parts = line.split('=', 1)
+                        if len(parts) == 2:
+                            conf_dir = parts[1].strip().strip('"').strip("'")
+                            static_candidates.append(os.path.join(conf_dir, 'auth'))
+        except Exception:
+            pass
+
+    logger.info(f"Procurando auth do Deluge em {len(static_candidates)} caminhos...")
+
+    for path in static_candidates:
+        exists = os.path.exists(path)
+        logger.info(f"  {'[OK]' if exists else '[--]'} {path}")
+        if exists:
+            result = _read_localclient_from_auth(path)
+            if result is not None:
+                logger.info(f"Senha do localclient obtida de: {path}")
+                return result
+
+    logger.warning("Arquivo auth do Deluge não encontrado em nenhum caminho. Usando senha fallback 'deluge'.")
+    return None
+
+
+def _read_localclient_from_auth(path):
+    """Lê o arquivo auth e retorna a senha do localclient, ou None se não encontrar."""
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith('localclient:'):
+                    parts = line.split(':')
+                    if len(parts) >= 2 and parts[1]:
+                        return parts[1]
+    except Exception as e:
+        logger.warning(f"Não foi possível ler {path}: {e}")
+    return None
+
+
+def connect_deluge():
+    """
+    Conecta ao cliente Deluge.
+    Tenta usar credenciais do usuário 'localclient' lendo do arquivo auth local,
+    o que corresponde à conexão padrão local. Caso falhe a leitura, tenta a senha 'deluge'.
+    """
+    try:
+        d = _get_deluge_config()
+        if d is None:
+            logger.error("Não foi possível obter configurações do Deluge. Conexão abortada.")
+            return None
+
+        host = d.DELUGE_HOST
+        if host.startswith('http://'):
+            host = host.replace('http://', '')
+        if host.startswith('https://'):
+            host = host.replace('https://', '')
+
+        # Tenta pegar credenciais do banco
+        username = getattr(d, 'DELUGE_USERNAME', None)
+        password = getattr(d, 'DELUGE_PASSWORD', None)
+
+        if not username or not password:
+            username = 'localclient'
+            password = 'deluge'  # último fallback
+
+            found_password = _find_deluge_localclient_password()
+            if found_password:
+                password = found_password
+                # Persiste no banco para próximas conexões
+                import database as _db
+                _db.set_setting('delug.DELUGE_USERNAME', username)
+                _db.set_setting('delug.DELUGE_PASSWORD', password)
+
+        logger.info(f"Conectando ao Deluge: {username}@{host}")
+        port = getattr(d, 'DELUGE_PORT', 58846)
+        client = DelugeRPCClient(host, port, username, password)
         client.connect()
         return client
     except Exception as e:
-        logger.info(f"Erro ao conectar ao Deluge: {e}")
+        error_msg = str(e)
+        if "Connection refused" in error_msg or "Errno 111" in error_msg or "target machine actively refused" in error_msg:
+            logger.error(f"Deluge inacessível em {host}. Serviço parado ou bloqueado por firewall.")
+        elif "Password does not match" in error_msg or "Authentication failed" in error_msg or "BadLoginError" in error_msg:
+            logger.error(f"Senha incorreta para '{username}' no Deluge. Verifique o arquivo auth ou as configurações.")
+        else:
+            logger.error(f"Erro ao conectar ao Deluge: {e}")
         return None
 
 
@@ -245,13 +406,16 @@ def get_downloads():
         if client:
             torrents = client.call('core.get_torrents_status', {}, [
                                    'name', 'progress', 'state'])
+            logger.info(f"Torrents raw data: {torrents}")
+            
             for torrent_id, data in torrents.items():
                 downloads.append({
-                    'id': torrent_id.decode('utf-8'),
-                    'name': data[b'name'].decode('utf-8'),
-                    'progress': round(data[b'progress'], 2),
-                    'state': data[b'state'].decode('utf-8')
+                    'id': torrent_id.decode('utf-8') if isinstance(torrent_id, bytes) else torrent_id,
+                    'name': data[b'name'].decode('utf-8') if isinstance(data.get(b'name'), bytes) else data.get(b'name', data.get('name')),
+                    'progress': round(data[b'progress'], 2) if b'progress' in data else round(data.get('progress', 0), 2),
+                    'state': data[b'state'].decode('utf-8') if isinstance(data.get(b'state'), bytes) else data.get(b'state', data.get('state'))
                 })
+            logger.info(f"Downloads formatted: {downloads}")
         return {"downloads": downloads}, 200
     except Exception as e:
         return {"error": f"Erro: {str(e)}"}, 500
@@ -407,9 +571,20 @@ def api_add_magnet():
         }), 500
 
 
-# Testa a conexão com o Deluge ao iniciar o servidor
-client = connect_deluge()
-if client:
-    logger.info("✅ Conexão com o Deluge estabelecida com sucesso!")
-else:
-    logger.info("❌ Falha ao conectar com o Deluge. Verifique as configurações.")
+@delugeTorrent.route('/storage', methods=['GET'])
+def get_storage():
+    """
+    Endpoint que retorna informações sobre o armazenamento do disco em JSON.
+    """
+    storage_info = get_disk_usage()
+    return jsonify(storage_info), 200
+
+
+# Testa a conexão com o Deluge ao iniciar (apenas no processo principal)
+import os as _os
+if _os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
+    _client = connect_deluge()
+    if _client:
+        logger.info("Deluge: conexão estabelecida com sucesso.")
+    else:
+        logger.warning("Deluge: falha na conexão inicial. Verifique as configurações.")

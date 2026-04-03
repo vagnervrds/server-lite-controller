@@ -1,4 +1,3 @@
-*.json
 *.jpg
 *.jpeg
 *.log
@@ -8,3 +7,18 @@ venv/
 __pycache__/
 node_modules/
 app.log
+
+# Arquivos sensíveis com credenciais e dados
+settings.json
+configEnviaPservidor.json
+server.db
+*.db
+monitor_data.json
+executar_stats.json
+
+# Arquivos de deploy com credenciais hardcoded
+deploy_changes.py
+EnviaPservidor.py
+
+# Cache do ruff
+.ruff_cache/

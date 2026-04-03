@@ -4,23 +4,18 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="/static/storage.css">
     <title>Gerenciador de Downloads</title>
 </head>
 
 <body>
-    <div class="container">
-        <h1>Gerenciador de Downloads</h1>
+<div class="container">
+<h1>Gerenciador de Downloads</h1>
 
-        {% with messages = get_flashed_messages(with_categories=true) %} 
-        {% if messages %} 
-            {% for category, message in messages %}
-            <div class="flash {{ category }}">{{ message }}</div>
-            {% endfor %} 
-        {% endif %} 
-        {% endwith %}
+<div id="flash-messages"></div>
 
-        <form id="add-download-form" method="POST">
+<form id="add-download-form" method="POST">
             <div class="form-group">
                 <label for="magnet_link">Adicionar Magnet Link:</label>
                 <input type="text" id="magnet_link" name="magnet_link" placeholder="Cole o magnet link aqui" required />
@@ -28,15 +23,40 @@
             <button type="submit">Adicionar Download</button>
         </form>
 
+        <div class="storage-info">
+            <h2>Armazenamento</h2>
+            <div class="storage-details">
+                <div class="storage-text">
+                    <span id="storage-used">Carregando...</span> / <span id="storage-total">...</span>
+                    (<span id="storage-percent">0</span>%)
+                </div>
+                <div class="storage-bar-container">
+                    <div class="storage-bar" id="storage-bar" style="width: 0%"></div>
+                </div>
+                <div class="storage-free">
+                    Livre: <span id="storage-free">...</span>
+                </div>
+            </div>
+        </div>
+
         <div class="downloads">
             <h2>Downloads Ativos</h2>
+            <div class="search-bar">
+                <input type="text" id="search-input" placeholder="Buscar download..." />
+                <button id="btn-clear-search" style="display:none;">Limpar</button>
+                <button id="btn-select-all" class="btn-small" style="display:none;">Selecionar todos</button>
+                <button id="btn-deselect-all" class="btn-small" style="display:none;">Desselecionar todos</button>
+                <button id="btn-delete-selected" class="btn-delete" style="display:none;">Excluir Selecionados</button>
+            </div>
             <div id="downloads-container">
                 <p>Carregando downloads...</p>
             </div>
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='torrent.js') }}"></script>
+    <script src="/static/torrent.js"></script>
+    <script src="/static/menu.js"></script>
+
 </body>
 
 </html>

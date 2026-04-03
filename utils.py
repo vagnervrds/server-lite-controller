@@ -1,41 +1,48 @@
-import json
-from types import SimpleNamespace
+"""
+utils.py - Funções utilitárias de configuração.
+A interface pública (ler_settings, salvar_settings, salvar_settings_dict)
+é mantida idêntica para não quebrar os arquivos que já a utilizam.
+"""
 
+import database as db
 from logger_config import setup_logger
+
 logger = setup_logger(__name__)
 
 
-def ler_settings(caminho_arquivo='settings.json'):
+def ler_settings(_caminho_arquivo='settings.json'):
     """
-    Lê um arquivo JSON e retorna como um objeto tipo classe.
-
-    :param caminho_arquivo: Caminho para o arquivo JSON.
-    :return: Objeto do tipo classe com os dados do JSON.
+    Retorna as configurações como SimpleNamespace, mantendo compatibilidade
+    com o código existente que acessa settings.DOWNLOAD_DIR, settings.delug.*, etc.
     """
     try:
-        with open(caminho_arquivo, 'r', encoding='utf-8') as arquivo:
-            dados = json.load(
-                arquivo, object_hook=lambda d: SimpleNamespace(**d))
-        return dados
-    except FileNotFoundError:
-        logger.info(f"O arquivo {caminho_arquivo} não foi encontrado.")
-        return None
-    except json.JSONDecodeError:
-        msg = f"Erro ao decodificar o arquivo {caminho_arquivo}"
-        logger.info(msg)
-        return None
-
-
-def salvar_settings(objeto, caminho_arquivo='settings.json'):
-    """
-    Salva um objeto tipo classe em um arquivo JSON.
-
-    :param objeto: Objeto tipo classe a ser salvo.
-    :param caminho_arquivo: Caminho para salvar o arquivo JSON.
-    """
-    try:
-        with open(caminho_arquivo, 'w', encoding='utf-8') as arquivo:
-            json.dump(objeto.__dict__, arquivo, ensure_ascii=False, indent=4)
-        logger.info(f"Configurações salvas com sucesso em {caminho_arquivo}.")
+        return db.get_settings_namespace()
     except Exception as e:
-        logger.info(f"Erro ao salvar o arquivo {caminho_arquivo}: {e}")
+        logger.error(f"Erro ao ler configurações do banco: {e}")
+        return None
+
+
+def salvar_settings(objeto, _caminho_arquivo='settings.json'):
+    """Salva um objeto SimpleNamespace nas configurações."""
+    try:
+        data = {}
+        for key, value in vars(objeto).items():
+            if hasattr(value, '__dict__'):
+                data[key] = vars(value)
+            else:
+                data[key] = value
+        db.set_settings_from_dict(data)
+        logger.info("Configurações salvas com sucesso.")
+    except Exception as e:
+        logger.error(f"Erro ao salvar configurações: {e}")
+
+
+def salvar_settings_dict(dados, _caminho_arquivo='settings.json'):
+    """Salva um dicionário nas configurações. Retorna True em caso de sucesso."""
+    try:
+        db.set_settings_from_dict(dados)
+        logger.info("Configurações salvas com sucesso.")
+        return True
+    except Exception as e:
+        logger.error(f"Erro ao salvar configurações: {e}")
+        return False

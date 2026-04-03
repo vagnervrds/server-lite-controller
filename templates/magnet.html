@@ -309,6 +309,26 @@
             font-weight: 600;
         }
 
+        .filter-bar {
+            margin-bottom: 16px;
+        }
+
+        .filter-bar input[type="text"] {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px 12px;
+            background-color: #3c3c3c;
+            border: 1px solid #555;
+            border-radius: 6px;
+            color: #d4d4d4;
+            font-size: 14px;
+        }
+
+        .filter-bar input[type="text"]:focus {
+            outline: none;
+            border-color: #0078d4;
+        }
+
         /* Responsividade */
         @media (max-width: 600px) {
             .results-header {
@@ -367,6 +387,10 @@
                     <span class="link-select" onclick="selecionarTodos()">Selecionar todos</span>
                     <span class="link-select" onclick="deselecionarTodos()">Desmarcar todos</span>
                 </div>
+            </div>
+
+            <div class="filter-bar">
+                <input type="text" id="filterInput" placeholder="Filtrar por título..." oninput="filtrarLinks()" />
             </div>
 
             <div class="magnet-list" id="magnetList"></div>
@@ -431,6 +455,7 @@
                     magnetLinks = data.links;
                     exibirResultados(data.links);
                     mostrarAlerta(`✓ ${data.total} magnet links encontrados!`, 'sucesso');
+                    resolverTitulosViaDeluge(data.links);
                 } else {
                     mostrarAlerta(`Erro: ${data.erro}`, 'erro');
                 }
@@ -442,39 +467,89 @@
             }
         }
 
+        // Regex para detectar títulos que são apenas hash (gerados pelo backend)
+        const HASH_TITLE_RE = /^Torrent\s+[A-Fa-f0-9]{6,}/;
+
+        async function resolverTitulosViaDeluge(links) {
+            const semTitulo = links.filter(item => HASH_TITLE_RE.test(item.titulo));
+            if (semTitulo.length === 0) return;
+
+            for (const item of semTitulo) {
+                try {
+                    const r = await fetch('/magnet/resolve-title', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ magnet: item.link })
+                    });
+                    const data = await r.json();
+                    if (data.nome) {
+                        // Atualiza o item na lista global
+                        item.titulo = data.nome;
+                        // Atualiza o elemento na DOM se estiver visível
+                        const idx = magnetLinks.indexOf(item);
+                        const el = document.querySelector(
+                            `.magnet-title[data-index="${idx}"]`
+                        );
+                        if (el) el.textContent = data.nome;
+                    }
+                } catch (_) { /* silencioso */ }
+            }
+        }
+
         function exibirResultados(links) {
             const magnetList = document.getElementById('magnetList');
             const linkCounter = document.getElementById('linkCounter');
             const results = document.getElementById('results');
             const sendStatus = document.getElementById('sendStatus');
 
-            linkCounter.textContent = links.length;
             sendStatus.classList.remove('active');
             sendStatus.innerHTML = '';
+            document.getElementById('filterInput').value = '';
 
-            magnetList.innerHTML = links.map((item, index) => `
-                <div class="magnet-item">
-                    <div class="checkbox-wrapper">
-                        <input type="checkbox" id="check_${index}" checked>
-                    </div>
-                    <div class="magnet-content">
-                        <div class="magnet-title">${item.titulo}</div>
-                        <div class="magnet-link">${item.link.substring(0, 100)}${item.link.length > 100 ? '...' : ''}</div>
-                    </div>
-                </div>
-            `).join('');
-
+            renderLista(links);
+            linkCounter.textContent = magnetLinks.length;
             results.classList.add('active');
         }
 
+        function renderLista(links) {
+            const magnetList = document.getElementById('magnetList');
+            const linkCounter = document.getElementById('linkCounter');
+
+            magnetList.innerHTML = links.map((item) => {
+                const index = magnetLinks.indexOf(item);
+                return `
+                <div class="magnet-item">
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" data-index="${index}" checked>
+                    </div>
+                    <div class="magnet-content">
+                        <div class="magnet-title" data-index="${index}">${item.titulo}</div>
+                        <div class="magnet-link">${item.link.substring(0, 100)}${item.link.length > 100 ? '...' : ''}</div>
+                    </div>
+                </div>
+            `}).join('');
+
+            linkCounter.textContent = links.length !== magnetLinks.length
+                ? `${links.length} / ${magnetLinks.length}`
+                : magnetLinks.length;
+        }
+
+        function filtrarLinks() {
+            const raw = document.getElementById('filterInput').value.trim().toLowerCase();
+            if (!raw) { renderLista(magnetLinks); return; }
+            const terms = raw.split(/\s+/);
+            const filtered = magnetLinks.filter(item =>
+                terms.some(t => item.titulo.toLowerCase().includes(t))
+            );
+            renderLista(filtered);
+        }
+
         function selecionarTodos() {
-            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
-            checkboxes.forEach(checkbox => checkbox.checked = true);
+            document.querySelectorAll('#magnetList input[type="checkbox"]').forEach(cb => cb.checked = true);
         }
 
         function deselecionarTodos() {
-            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
-            checkboxes.forEach(checkbox => checkbox.checked = false);
+            document.querySelectorAll('#magnetList input[type="checkbox"]').forEach(cb => cb.checked = false);
         }
 
         async function enviarParaApi() {
@@ -483,9 +558,9 @@
             const sendStatus = document.getElementById('sendStatus');
 
             const linksSelecionados = [];
-            checkboxes.forEach((checkbox, index) => {
+            checkboxes.forEach((checkbox) => {
                 if (checkbox.checked) {
-                    linksSelecionados.push(magnetLinks[index].link);
+                    linksSelecionados.push(magnetLinks[parseInt(checkbox.dataset.index)].link);
                 }
             });
 
@@ -585,6 +660,7 @@
             }
         });
     </script>
+    <script src="/static/menu.js"></script>
 </body>
 
 </html>
