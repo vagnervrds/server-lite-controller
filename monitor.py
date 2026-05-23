@@ -180,9 +180,9 @@ def update_usage(disk_rate, network_rate):
     }
     db.set_monitor_state("current_usage", usage)
 
-    # Histórico a cada 15 min
+    # Histórico a cada 5 min (300 segundos)
     last_hist = db.get_monitor_state("last_history_ts", 0)
-    if time.time() - last_hist > 900:
+    if time.time() - last_hist > 300:
         db.add_history_point(disk_rate, network_rate, disk_percent, net_percent)
         db.set_monitor_state("last_history_ts", time.time())
 
@@ -197,8 +197,16 @@ def update_usage(disk_rate, network_rate):
 def check_usage_thresholds():
     global idle_timer_active, shutdown_scheduled
 
-    usage = db.get_monitor_state("current_usage", {})
     config = db.get_monitor_config()
+
+    # Se desligamento desativado, não verifica limiares
+    if not config.get("shutdown_enabled", False):
+        if idle_timer_active:
+            idle_timer_active = False
+            shutdown_scheduled = False
+        return
+
+    usage = db.get_monitor_state("current_usage", {})
     now = time.time()
 
     disk_pct = usage.get("disk_usage_percent", 0)
@@ -219,7 +227,7 @@ def check_usage_thresholds():
             if idle_minutes >= config["idle_time_threshold"] and not shutdown_scheduled:
                 shutdown_scheduled = True
                 if not config["debug_mode"]:
-                    cmd = "shutdown /s /t 60" if os.name == "nt" else "shutdown -h +1"
+                    cmd = "shutdown /s /t 60" if os.name == "nt" else "sudo /sbin/shutdown -h +1"
                     os.system(cmd)
                     logger.critical(f"Desligamento agendado: {cmd}")
                 else:
@@ -268,6 +276,11 @@ def stop_monitoring():
         if monitoring_thread:
             monitoring_thread.join(timeout=2)
         logger.info("Monitoramento parado.")
+
+
+def init_monitoring():
+    """Inicializa o monitoramento automaticamente no startup da aplicação."""
+    start_monitoring()
 
 
 # ---------------------------------------------------------------------------
@@ -399,7 +412,7 @@ def usage_route():
 
 @monitorBlueP.route("/api/history", methods=["GET"])
 def history_route():
-    return jsonify(db.get_history(hours=12))
+    return jsonify(db.get_history(hours=24))
 
 
 @monitorBlueP.route("/api/disks", methods=["GET"])
@@ -447,6 +460,7 @@ def status_route():
             "debug_mode": config.get("debug_mode", True),
             "disk_threshold": config.get("disk_threshold", 10),
             "network_threshold": config.get("network_threshold", 5),
+            "shutdown_enabled": config.get("shutdown_enabled", False),
             "calibration_completed": True,
             "max_disk_date": max_u.get("disk_max_date", ""),
             "max_network_date": max_u.get("network_max_date", ""),
@@ -484,7 +498,7 @@ def cancel_shutdown_route():
     idle_timer_active = False
     shutdown_scheduled = False
     try:
-        os.system("shutdown /a" if os.name == "nt" else "shutdown -c")
+        os.system("shutdown /a" if os.name == "nt" else "sudo /sbin/shutdown -c")
     except Exception as e:
         logger.error(f"Erro ao cancelar desligamento: {e}")
     return jsonify({"status": "success", "message": "Desligamento cancelado"})

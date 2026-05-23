@@ -342,15 +342,16 @@
 <span>Uptime:</span>
 <strong id="sys-uptime">...</strong>
 </div>
-<div class="server-bar-item">
-<span>OS:</span>
-<strong id="sys-os">...</strong>
-</div>
-<div class="server-bar-item" style="margin-left:auto;">
-<span class="status-indicator" id="status-indicator"></span>
-<strong id="status-text">Verificando...</strong>
-</div>
-</div>
+      <div class="server-bar-item">
+        <span>OS:</span>
+        <strong id="sys-os">...</strong>
+      </div>
+      <div class="server-bar-item" style="margin-left:auto;">
+        <span class="status-indicator" id="status-indicator"></span>
+        <strong id="status-text">Verificando...</strong>
+        <span id="shutdown-status" style="margin-left:10px;font-size:11px;color:#888;"></span>
+      </div>
+      </div>
 
         <!-- Métricas do sistema -->
         <div class="metrics-grid">
@@ -455,47 +456,39 @@
                 <div class="last-updated">
                     Atualizado: <span id="last-updated">Nunca</span>
                 </div>
-            </div>
+      </div>
 
-            <!-- Configurações + Controles -->
-            <div class="monitor-card">
-                <h5>Controles</h5>
-                <div class="control-buttons" style="margin-bottom:16px;">
-                    <button id="start-btn" class="btn-success">Iniciar</button>
-                    <button id="stop-btn" class="btn-danger">Parar</button>
-                </div>
-
-                <h5>Configurações</h5>
-                <form id="config-form">
-                    <div class="form-group">
-                        <label class="form-label" for="monitor-interval">Intervalo de monitoramento (s)</label>
-                        <input type="number" class="form-control-num" id="monitor-interval" min="10" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label" for="monitor-duration">Duração de cada medição (s)</label>
-                        <input type="number" class="form-control-num" id="monitor-duration" min="1" max="30" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label" for="disk-threshold">Limite mínimo HD (% do máx.)</label>
-                        <input type="number" class="form-control-num" id="disk-threshold" min="0" max="100" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label" for="network-threshold">Limite mínimo Rede (% do máx.)</label>
-                        <input type="number" class="form-control-num" id="network-threshold" min="0" max="100" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label" for="idle-time">Inatividade para desligar (min)</label>
-                        <input type="number" class="form-control-num" id="idle-time" min="1" required>
-                    </div>
-                    <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="debug-mode">
-                        <label class="form-check-label" for="debug-mode">Modo Debug (não desliga de verdade)</label>
-                    </div>
-                    <button type="submit" class="btn-primary btn-full">Salvar Configurações</button>
-                </form>
-            </div>
+      <!-- Configurações + Controles -->
+      <div class="monitor-card">
+        <h5>Desligamento Automático</h5>
+        <div class="form-check">
+          <input type="checkbox" class="form-check-input" id="shutdown-enabled">
+          <label class="form-check-label" for="shutdown-enabled">Permitir desligar automaticamente quando inativo</label>
         </div>
+
+        <h5 style="margin-top:16px;">Configurações</h5>
+        <form id="config-form">
+        <div class="form-group">
+          <label class="form-label" for="disk-threshold">Limite mínimo HD (% do máx.)</label>
+          <input type="number" class="form-control-num" id="disk-threshold" min="0" max="100" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="network-threshold">Limite mínimo Rede (% do máx.)</label>
+          <input type="number" class="form-control-num" id="network-threshold" min="0" max="100" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="idle-time">Inatividade para desligar (min)</label>
+          <input type="number" class="form-control-num" id="idle-time" min="1" required>
+        </div>
+        <div class="form-check">
+          <input type="checkbox" class="form-check-input" id="debug-mode">
+          <label class="form-check-label" for="debug-mode">Modo Debug (não desliga de verdade)</label>
+        </div>
+        <button type="submit" class="btn-primary btn-full">Salvar Configurações</button>
+        </form>
+      </div>
     </div>
+  </div>
 
     <script>
         function formatBytes(bytes) {
@@ -655,87 +648,82 @@ document.getElementById('sys-uptime').textContent = d.uptime || 'N/A';
             bar.style.width = Math.min(Math.max(percent, 0), 100).toFixed(1) + '%';
         }
 
-        // ── Status do monitoramento ─────────────────────────────────────────
-        async function checkStatus() {
-            try {
-                const r = await fetch('/monitor/api/status');
-                const s = await r.json();
-                const indicator = document.getElementById('status-indicator');
-                const text = document.getElementById('status-text');
-                if (s.active) {
-                    if (s.debug_mode) {
-                        indicator.className = 'status-indicator status-warning';
-                        text.innerHTML = 'Ativo (Debug) <span class="debug-badge">DEBUG</span>';
-                    } else {
-                        indicator.className = 'status-indicator status-active';
-                        text.textContent = 'Monitoramento Ativo';
-                    }
-                } else {
-                    indicator.className = 'status-indicator status-inactive';
-                    text.textContent = 'Monitoramento Inativo';
-                }
-            } catch (e) {
-                console.error('Erro ao verificar status:', e);
-            }
-        }
+// ── Status do monitoramento ─────────────────────────────────────────
+async function checkStatus() {
+  try {
+    const r = await fetch('/monitor/api/status');
+    const s = await r.json();
+    const indicator = document.getElementById('status-indicator');
+    const text = document.getElementById('status-text');
+    const shutdownStatus = document.getElementById('shutdown-status');
+    
+    if (s.active) {
+      indicator.className = 'status-indicator status-active';
+      text.textContent = 'Monitorando';
+    } else {
+      indicator.className = 'status-indicator status-inactive';
+      text.textContent = 'Inativo';
+    }
+    
+    if (s.shutdown_enabled) {
+      shutdownStatus.textContent = '(Desligamento: ON)';
+      shutdownStatus.style.color = '#f0ad4e';
+    } else {
+      shutdownStatus.textContent = '(Desligamento: OFF)';
+      shutdownStatus.style.color = '#888';
+    }
+  } catch (e) {
+    console.error('Erro ao verificar status:', e);
+  }
+}
 
-        // ── Config ──────────────────────────────────────────────────────────
-        async function loadConfig() {
-            try {
-                const r = await fetch('/monitor/api/config');
-                const c = await r.json();
-                document.getElementById('monitor-interval').value = c.monitor_interval;
-                document.getElementById('monitor-duration').value = c.monitor_duration;
-                document.getElementById('disk-threshold').value = c.disk_threshold;
-                document.getElementById('network-threshold').value = c.network_threshold;
-                document.getElementById('idle-time').value = c.idle_time_threshold;
-                document.getElementById('debug-mode').checked = c.debug_mode;
-            } catch (e) { console.error('Erro ao carregar config:', e); }
-        }
+// ── Config ──────────────────────────────────────────────────────────
+async function loadConfig() {
+  try {
+    const r = await fetch('/monitor/api/config');
+    const c = await r.json();
+    document.getElementById('disk-threshold').value = c.disk_threshold;
+    document.getElementById('network-threshold').value = c.network_threshold;
+    document.getElementById('idle-time').value = c.idle_time_threshold;
+    document.getElementById('debug-mode').checked = c.debug_mode;
+    document.getElementById('shutdown-enabled').checked = c.shutdown_enabled;
+  } catch (e) { console.error('Erro ao carregar config:', e); }
+}
 
-        document.getElementById('config-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const config = {
-                monitor_interval: parseInt(document.getElementById('monitor-interval').value),
-                monitor_duration: parseInt(document.getElementById('monitor-duration').value),
-                disk_threshold: parseInt(document.getElementById('disk-threshold').value),
-                network_threshold: parseInt(document.getElementById('network-threshold').value),
-                idle_time_threshold: parseInt(document.getElementById('idle-time').value),
-                debug_mode: document.getElementById('debug-mode').checked
-            };
-            try {
-                const r = await fetch('/monitor/api/config', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(config)
-                });
-                const res = await r.json();
-                alert(res.message);
-            } catch (e) { alert('Erro ao salvar configurações.'); }
-        });
+document.getElementById('config-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const config = {
+    disk_threshold: parseInt(document.getElementById('disk-threshold').value),
+    network_threshold: parseInt(document.getElementById('network-threshold').value),
+    idle_time_threshold: parseInt(document.getElementById('idle-time').value),
+    debug_mode: document.getElementById('debug-mode').checked,
+    shutdown_enabled: document.getElementById('shutdown-enabled').checked
+  };
+  try {
+    const r = await fetch('/monitor/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config)
+    });
+    const res = await r.json();
+    alert(res.message);
+  } catch (e) { alert('Erro ao salvar configurações.'); }
+});
 
-        // ── Botões ──────────────────────────────────────────────────────────
-        document.getElementById('start-btn').addEventListener('click', async () => {
-            await fetch('/monitor/api/monitor/start', { method: 'POST' });
-            checkStatus();
-        });
-        document.getElementById('stop-btn').addEventListener('click', async () => {
-            await fetch('/monitor/api/monitor/stop', { method: 'POST' });
-            checkStatus();
-        });
-        document.getElementById('reset-max-btn').addEventListener('click', async () => {
-            if (!confirm('Resetar valores máximos e reiniciar calibração?')) return;
-            const r = await fetch('/monitor/api/reset-max', { method: 'POST' });
-            const res = await r.json();
-            alert(res.message);
-            updateUsage();
-        });
-        document.getElementById('cancel-shutdown-btn').addEventListener('click', async () => {
-            const r = await fetch('/monitor/api/cancel-shutdown', { method: 'POST' });
-            const res = await r.json();
-            alert(res.message);
-            updateUsage(); checkStatus();
-        });
+// ── Botões ──────────────────────────────────────────────────────────
+document.getElementById('reset-max-btn').addEventListener('click', async () => {
+  if (!confirm('Resetar valores máximos?')) return;
+  const r = await fetch('/monitor/api/reset-max', { method: 'POST' });
+  const res = await r.json();
+  alert(res.message);
+  updateUsage();
+});
+document.getElementById('cancel-shutdown-btn').addEventListener('click', async () => {
+  const r = await fetch('/monitor/api/cancel-shutdown', { method: 'POST' });
+  const res = await r.json();
+  alert(res.message);
+  updateUsage(); checkStatus();
+});
 
         // ── Histórico (chart) ───────────────────────────────────────────────
         let historyChart;

@@ -7,7 +7,7 @@ import threading
 import requests
 from deluge_torrent import delugeTorrent
 from file_manager import fileManager
-from monitor import monitorBlueP
+from monitor import monitorBlueP, init_monitoring
 
 import secrets
 from logger_config import setup_logger
@@ -62,13 +62,13 @@ def config_save():
 
 @app.route("/desligar", methods=["POST"])
 def desligar():
-    os.system("/sbin/shutdown -h now")
+    os.system("sudo /sbin/shutdown -h now")
     return "Desligando o servidor..."
 
 
 @app.route("/reiniciar", methods=["POST"])
 def reiniciar():
-    os.system("/sbin/reboot")
+    os.system("sudo /sbin/reboot")
     return "Reiniciando o servidor..."
 
 
@@ -260,4 +260,5 @@ if __name__ == "__main__":
     if os.environ.get("WERKZEUG_RUN_MAIN") != "true":
         logger.info("Iniciando o servidor Flask.")
         _log_deluge_info()
+        init_monitoring()
     app.run(host="0.0.0.0", port=5010, debug=True)

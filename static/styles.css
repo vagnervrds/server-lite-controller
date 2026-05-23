@@ -293,7 +293,10 @@ button:hover {
 }
 
 .file-table td:nth-child(2) {
-  word-break: break-word;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .file-table td:last-child {
@@ -428,6 +431,15 @@ html {
   display: flex;
   align-items: center;
   gap: 10px;
+  overflow: hidden;
+}
+
+.download-header span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
 .select-delete {

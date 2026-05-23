@@ -1,12 +1,11 @@
 @echo off & python -x "%~f0" %* & goto :eof
 # -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import os
 import sys
 import json
 import subprocess
 from datetime import datetime
-
-print(sys.stdout.encoding)  # Verificar o encoding do terminal
 
 STATS_FILE = "executar_stats.json"
 
@@ -130,8 +129,8 @@ def get_sorted_files():
     # Lógica dos 10%
     total = len(files)
     limit = int(total * 0.1)
-    if limit < 1 and total > 0:
-        limit = 1  # Garante pelo menos mostrar o Top 1 se houver arquivos
+    if limit < 3 and total > 0:
+        limit = 3  # Garante pelo menos mostrar o Top 3 se houver arquivos
 
     stats = load_stats()
 
@@ -150,7 +149,7 @@ def get_sorted_files():
 
     if top_files:
         print(colored(
-            f"Top {len(top_files)} scripts mais executados (Baseado em 10% de {total}): {', '.join(top_files)}", 'green'))
+            f"Scripts mais executados: {', '.join(top_files)}", 'green'))
 
     # Monta a lista final
     final_list = []
@@ -170,16 +169,17 @@ def get_sorted_files():
 
 
 def check_venv():
-    """Verifica se existe pasta venv e retorna o executável python se existir."""
-    venv_dir = os.path.join(os.getcwd(), 'venv')
-    if os.path.isdir(venv_dir):
-        if sys.platform == 'win32':
-            python_exe = os.path.join(venv_dir, 'Scripts', 'python.exe')
-        else:
-            python_exe = os.path.join(venv_dir, 'bin', 'python')
+    """Verifica se existe pasta venv ou .venv e retorna o executável python se existir."""
+    for venv_name in ['.venv', 'venv']:
+        venv_dir = os.path.join(os.getcwd(), venv_name)
+        if os.path.isdir(venv_dir):
+            if sys.platform == 'win32':
+                python_exe = os.path.join(venv_dir, 'Scripts', 'python.exe')
+            else:
+                python_exe = os.path.join(venv_dir, 'bin', 'python')
 
-        if os.path.exists(python_exe):
-            return python_exe
+            if os.path.exists(python_exe):
+                return python_exe
     return None
 
 # --- Início do Programa ---
@@ -198,50 +198,54 @@ if venv_path:
     else:
         use_venv_python = None
 
-# Obtém lista de arquivos
-pylst = get_sorted_files()
-arquivo = ''
-
-if not pylst:
-    print("Nenhum arquivo .py encontrado no diretório.")
-    sys.exit()
-
-if len(pylst) == 1:
-    arquivo = pylst[0]
-    pastaarquivo = os.path.join(os.getcwd(), arquivo)
-    print(f"Arquivo único selecionado: {pastaarquivo}")
-else:
-    narquivo = mostra_opcoes(
-        "Digite o número do arquivo a ser executado", pylst)
-    arquivo = pylst[narquivo]
-    pastaarquivo = os.path.join(os.getcwd(), arquivo)
-    print(pastaarquivo)
-
-qt = 0
 while True:
-    qt += 1
-    # Atualiza Stats
-    runs = update_stat(arquivo)
+    # Obtém lista de arquivos
+    pylst = get_sorted_files()
+    arquivo = ''
 
-    texto1 = f"Executando {arquivo} : {qt} : {datetime.now()} (Total Runs: {runs})\n"
-    horainicio = datetime.now()
-    print(colored(texto1, 'magenta'))
-    print(f"Path: {pastaarquivo}")
+    if not pylst:
+        print("Nenhum arquivo .py encontrado no diretório.")
+        sys.exit()
 
-    # Define comando
-    cmd_python = use_venv_python if use_venv_python else "python"
+    if len(pylst) == 1:
+        arquivo = pylst[0]
+        pastaarquivo = os.path.join(os.getcwd(), arquivo)
+        print(f"Arquivo único selecionado: {pastaarquivo}")
+    else:
+        narquivo = mostra_opcoes(
+            "Digite o número do arquivo a ser executado", pylst)
+        arquivo = pylst[narquivo]
+        pastaarquivo = os.path.join(os.getcwd(), arquivo)
+        print(pastaarquivo)
 
-    # Executa
-    try:
-        subprocess.call([cmd_python, pastaarquivo])
-    except Exception as e:
-        print(colored(f"Erro ao executar: {e}", 'magenta'))
+    qt = 0
+    while True:
+        qt += 1
+        # Atualiza Stats
+        runs = update_stat(arquivo)
 
-    tempodeexecucao = datetime.now() - horainicio
-    print("\n" * 5)
-    print(colored(f"Tempo de execução {tempodeexecucao}", 'magenta'))
+        texto1 = f"Executando {arquivo} : {qt} : {datetime.now()} (Total Runs: {runs})\n"
+        horainicio = datetime.now()
+        print(colored(texto1, 'magenta'))
+        print(f"Path: {pastaarquivo}")
 
-    NomeArquivo = os.path.basename(pastaarquivo)
-    msg = f"Pressione ENTER para executar novamente: {NomeArquivo}"
-    print(colored(msg, 'magenta'))
-    input()
+        # Define comando
+        cmd_python = use_venv_python if use_venv_python else "python"
+
+        # Executa
+        try:
+            subprocess.call([cmd_python, pastaarquivo])
+        except Exception as e:
+            print(colored(f"Erro ao executar: {e}", 'magenta'))
+
+        tempodeexecucao = datetime.now() - horainicio
+        print("\n" * 5)
+        print(colored(f"Tempo de execução {tempodeexecucao}", 'magenta'))
+
+        NomeArquivo = os.path.basename(pastaarquivo)
+        msg = f"Pressione ENTER para executar novamente: {NomeArquivo} \nM para retornar ao menu"
+        print(colored(msg, 'magenta'))
+        
+        escolha = input().strip().lower()
+        if escolha == 'm':
+            break

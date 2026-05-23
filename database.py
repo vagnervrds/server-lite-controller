@@ -375,6 +375,7 @@ def get_monitor_config() -> dict:
         "network_threshold": int(raw.get("network_threshold", 5)),
         "idle_time_threshold": int(raw.get("idle_time_threshold", 30)),
         "debug_mode": raw.get("debug_mode", "true").lower() == "true",
+        "shutdown_enabled": raw.get("shutdown_enabled", "false").lower() == "true",
         "min_disk_rate": int(raw.get("min_disk_rate", 102400)),
         "min_network_rate": int(raw.get("min_network_rate", 10240)),
     }
@@ -497,17 +498,17 @@ def add_history_point(
                 (now, disk_usage, network_usage, disk_percent, network_percent),
             )
 
-            # Mantém apenas os últimos 96 pontos (24h com medição a cada 15min)
-            conn.execute("""
-                DELETE FROM monitor_history
-                WHERE id NOT IN (
-                    SELECT id FROM monitor_history ORDER BY id DESC LIMIT 96
-                )
-            """)
-            conn.commit()
+    # Mantém apenas os últimos 288 pontos (24h com medição a cada 5min)
+    conn.execute("""
+        DELETE FROM monitor_history
+        WHERE id NOT IN (
+            SELECT id FROM monitor_history ORDER BY id DESC LIMIT 288
+        )
+    """)
+    conn.commit()
 
 
-def get_history(limit: int = 96, hours: int = 12) -> list:
+def get_history(limit: int = 288, hours: int = 24) -> list:
     since = (datetime.datetime.utcnow() - datetime.timedelta(hours=hours)).strftime(
         "%Y-%m-%d %H:%M:%S"
     )
@@ -515,12 +516,12 @@ def get_history(limit: int = 96, hours: int = 12) -> list:
         rows = conn.execute(
             """
             SELECT timestamp, disk_usage, network_usage,
-                   disk_usage_percent, network_usage_percent
+            disk_usage_percent, network_usage_percent
             FROM monitor_history
             WHERE timestamp >= ?
             ORDER BY id ASC
             LIMIT ?
-        """,
+            """,
             (since, limit),
         ).fetchall()
         return [dict(row) for row in rows]
